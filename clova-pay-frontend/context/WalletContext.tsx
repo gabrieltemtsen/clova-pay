@@ -12,59 +12,70 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+const STORAGE_KEY = "clovapay_wallet_address";
+
 export function WalletProvider({ children }: { children: ReactNode }) {
     const [isConnected, setIsConnected] = useState(false);
     const [address, setAddress] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [userSession, setUserSession] = useState<any>(null);
 
-    // Initialize Stacks connect on client side only
+    // Check for existing session on mount
     useEffect(() => {
-        const initStacks = async () => {
+        const checkConnection = async () => {
             try {
-                const { AppConfig, UserSession } = await import("@stacks/connect");
-                const appConfig = new AppConfig(["store_write", "publish_data"]);
-                const session = new UserSession({ appConfig });
-                setUserSession(session);
-
-                if (session.isUserSignedIn()) {
-                    const userData = session.loadUserData();
+                // Check localStorage first
+                const storedAddress = localStorage.getItem(STORAGE_KEY);
+                if (storedAddress) {
                     setIsConnected(true);
-                    setAddress(userData.profile.stxAddress?.testnet || userData.profile.stxAddress?.mainnet);
+                    setAddress(storedAddress);
+                } else {
+                    // Try to check with connect library
+                    const { isConnected: checkIsConnected } = await import("@stacks/connect");
+                    if (checkIsConnected()) {
+                        setIsConnected(true);
+                    }
                 }
             } catch (error) {
-                console.error("Failed to initialize Stacks connect:", error);
+                console.error("Failed to check connection:", error);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        initStacks();
+        checkConnection();
     }, []);
 
     const connectWallet = useCallback(async () => {
-        if (!userSession) return;
-
         try {
-            const { showConnect } = await import("@stacks/connect");
-            showConnect({
+            const { connect } = await import("@stacks/connect");
+
+            // Use the new connect function - returns addresses directly
+            const response = await connect({
                 appDetails: {
                     name: "ClovaPay",
-                    icon: window.location.origin + "/logo.svg",
+                    icon: typeof window !== "undefined" ? window.location.origin + "/logo.svg" : "/logo.svg",
                 },
-                redirectTo: "/dashboard",
-                onFinish: () => {
-                    const userData = userSession.loadUserData();
-                    setIsConnected(true);
-                    setAddress(userData.profile.stxAddress?.testnet || userData.profile.stxAddress?.mainnet);
-                    window.location.reload();
-                },
-                userSession,
             });
+
+            console.log("Connect response:", response);
+
+            if (response && response.addresses) {
+                // Get STX address - prefer testnet for development, mainnet for production
+                const stxAddressInfo = response.addresses.find(
+                    (addr: { symbol: string }) => addr.symbol === "STX"
+                );
+
+                if (stxAddressInfo) {
+                    const stxAddress = stxAddressInfo.address;
+                    setIsConnected(true);
+                    setAddress(stxAddress);
+                    localStorage.setItem(STORAGE_KEY, stxAddress);
+                }
+            }
         } catch (error) {
             console.error("Failed to connect wallet:", error);
         }
-    }, [userSession]);
+    }, []);
 
     const disconnectWallet = useCallback(async () => {
         try {
@@ -72,6 +83,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             disconnect();
             setIsConnected(false);
             setAddress(null);
+            localStorage.removeItem(STORAGE_KEY);
         } catch (error) {
             console.error("Failed to disconnect wallet:", error);
         }
