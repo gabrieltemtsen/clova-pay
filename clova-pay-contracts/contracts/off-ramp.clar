@@ -94,6 +94,7 @@
 (define-data-var paused bool false)
 
 ;; Track total escrowed STX for accounting
+;; @notice Total STX currently held in escrow
 (define-data-var total-escrowed uint u0)
 
 ;; ============================================
