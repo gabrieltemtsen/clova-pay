@@ -306,6 +306,8 @@
   (var-get order-nonce)
 )
 
+;; @notice Get total fees collected
+;; @return uint Total fees in uSTX
 (define-read-only (get-total-fees)
   (var-get total-fees-collected)
 )
