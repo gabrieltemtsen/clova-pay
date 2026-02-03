@@ -266,6 +266,9 @@
 ;; Read-Only Functions
 ;; ============================================
 
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
 (define-read-only (get-order (order-id uint))
   (map-get? orders { order-id: order-id })
 )
@@ -286,6 +289,9 @@
   (var-get treasury)
 )
 
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
 (define-read-only (get-order-nonce)
   (var-get order-nonce)
 )
@@ -322,6 +328,9 @@
   (var-get max-order-amount)
 )
 
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
 (define-read-only (get-order-cooldown)
   (var-get order-cooldown-blocks)
 )
@@ -708,6 +717,9 @@
 )
 
 ;; Get the token used for a specific order (none = STX order)
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
 (define-read-only (get-order-token (order-id uint))
   (map-get? token-orders { order-id: order-id })
 )
