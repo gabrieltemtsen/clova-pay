@@ -501,6 +501,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Security: Order Limits ---
   describe("Security: Order Limits", () => {
     it("should reject orders below minimum amount", () => {
       const bankHash = createBankHash("min-test");
