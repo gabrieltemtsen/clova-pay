@@ -1,5 +1,9 @@
 ;; ClovaPay Off-Ramp Contract
 ;; Escrow contract for crypto-to-fiat conversions via Paycrest bridge
+;; Supports both STX and SIP-010 tokens
+
+;; Import SIP-010 trait
+(use-trait sip010-trait .sip010-trait.sip010-trait)
 
 ;; ============================================
 ;; Constants
@@ -13,6 +17,7 @@
 (define-constant ERR_INSUFFICIENT_BALANCE (err u104))
 (define-constant ERR_ALREADY_CONFIRMED (err u105))
 (define-constant ERR_TRANSFER_FAILED (err u106))
+(define-constant ERR_TOKEN_NOT_SUPPORTED (err u107))
 
 ;; Fee rate in basis points (100 = 1%)
 (define-constant FEE_DENOMINATOR u10000)
@@ -61,6 +66,18 @@
 (define-map user-orders
   { user: principal }
   { order-ids: (list 50 uint) }
+)
+
+;; Supported SIP-010 tokens map
+(define-map supported-tokens
+  { token: principal }
+  { enabled: bool, name: (string-ascii 32) }
+)
+
+;; Token orders map (tracks token type per order)
+(define-map token-orders
+  { order-id: uint }
+  { token: principal }
 )
 
 ;; ============================================
@@ -404,3 +421,113 @@
     (ok true)
   )
 )
+
+;; ============================================
+;; Token Support Functions
+;; ============================================
+
+;; Admin: Enable or disable a SIP-010 token for deposits
+(define-public (set-token-enabled (token principal) (enabled bool) (name (string-ascii 32)))
+  (begin
+    (asserts! (is-eq tx-sender (var-get admin)) ERR_NOT_AUTHORIZED)
+    (map-set supported-tokens
+      { token: token }
+      { enabled: enabled, name: name }
+    )
+    (print { event: "token-updated", token: token, enabled: enabled, name: name })
+    (ok true)
+  )
+)
+
+;; Check if a token is supported
+(define-read-only (is-token-supported (token principal))
+  (match (map-get? supported-tokens { token: token })
+    token-data (get enabled token-data)
+    false
+  )
+)
+
+;; Get token info
+(define-read-only (get-token-info (token principal))
+  (map-get? supported-tokens { token: token })
+)
+
+;; Get the token used for a specific order (none = STX order)
+(define-read-only (get-order-token (order-id uint))
+  (map-get? token-orders { order-id: order-id })
+)
+
+;; Create an order using a SIP-010 token instead of STX
+(define-public (create-order-token
+    (token <sip010-trait>)
+    (amount uint)
+    (fiat-amount uint)
+    (fiat-currency (string-ascii 3))
+    (bank-details-hash (buff 32)))
+  (let
+    (
+      (token-principal (contract-of token))
+      (order-id (+ (var-get order-nonce) u1))
+      (fee (calculate-fee amount))
+      (caller tx-sender)
+    )
+    ;; Validations
+    (asserts! (not (var-get paused)) ERR_NOT_AUTHORIZED)
+    (asserts! (is-token-supported token-principal) ERR_TOKEN_NOT_SUPPORTED)
+    (asserts! (> amount u0) ERR_INVALID_AMOUNT)
+    (asserts! (> fiat-amount u0) ERR_INVALID_AMOUNT)
+
+    ;; Transfer tokens to contract (escrow)
+    (try! (contract-call? token transfer amount caller (as-contract tx-sender) none))
+
+    ;; Store order (similar to STX order)
+    (map-set orders
+      { order-id: order-id }
+      {
+        sender: caller,
+        amount: amount,
+        fee: fee,
+        fiat-amount: fiat-amount,
+        fiat-currency: fiat-currency,
+        bank-details-hash: bank-details-hash,
+        status: STATUS_PENDING,
+        created-at: block-height,
+        confirmed-at: none,
+        paycrest-ref: none
+      }
+    )
+
+    ;; Track which token this order uses
+    (map-set token-orders
+      { order-id: order-id }
+      { token: token-principal }
+    )
+
+    ;; Update user's order list
+    (match (map-get? user-orders { user: caller })
+      existing-data (map-set user-orders
+        { user: caller }
+        { order-ids: (unwrap! (as-max-len? (append (get order-ids existing-data) order-id) u50) ERR_TRANSFER_FAILED) }
+      )
+      (map-set user-orders { user: caller } { order-ids: (list order-id) })
+    )
+
+    ;; Update nonce
+    (var-set order-nonce order-id)
+
+    ;; Emit event
+    (print {
+      event: "token-order-created",
+      order-id: order-id,
+      token: token-principal,
+      sender: caller,
+      amount: amount,
+      fee: fee,
+      fiat-amount: fiat-amount,
+      fiat-currency: fiat-currency
+    })
+
+    (ok order-id)
+  )
+)
+
