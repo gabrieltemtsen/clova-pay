@@ -341,6 +341,8 @@
 ;; Security Configuration Getters
 ;; ============================================
 
+;; @notice Get minimum order amount
+;; @return uint Minimum in uSTX
 (define-read-only (get-min-order-amount)
   (var-get min-order-amount)
 )
