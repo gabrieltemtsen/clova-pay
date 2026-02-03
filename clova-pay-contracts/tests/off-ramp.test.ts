@@ -88,6 +88,47 @@ describe("ClovaPay Off-Ramp Contract", () => {
       );
       expect(result.result).toBeBool(false);
     });
+
+    it("should return min order amount", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-min-order-amount",
+        [],
+        deployer
+      );
+      expect(result.result).toBeUint(1000000); // 1 STX default
+    });
+
+    it("should return max order amount", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-max-order-amount",
+        [],
+        deployer
+      );
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should return order cooldown", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-order-cooldown",
+        [],
+        deployer
+      );
+      // Cooldown is set to 0 in beforeEach
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should return daily limit", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-daily-limit",
+        [],
+        deployer
+      );
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
   });
 
   describe("Order Creation", () => {
