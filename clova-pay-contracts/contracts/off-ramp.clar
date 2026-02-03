@@ -174,6 +174,9 @@
 ;; ============================================
 
 ;; Transfer STX from contract to a recipient
+;; @notice Transfer STX from contract to recipient
+;; @param amount Amount to transfer
+;; @param recipient Address to receive funds
 (define-private (transfer-from-escrow (amount uint) (recipient principal))
   (as-contract (stx-transfer? amount tx-sender recipient))
 )
