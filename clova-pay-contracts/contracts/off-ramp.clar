@@ -108,6 +108,7 @@
 (define-data-var max-order-amount uint u100000000000) ;; 100,000 STX maximum
 
 ;; Cooldown between orders in blocks (~10 min = ~60 blocks)
+;; @notice Blocks to wait between orders (6 blocks ~ 1 hour)
 (define-data-var order-cooldown-blocks uint u6)      ;; ~1 minute cooldown
 
 ;; Daily limit per user in micro-STX (resets every 144 blocks ~24hrs)
