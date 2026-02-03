@@ -5,6 +5,11 @@ authors = []
 telemetry = true
 cache_dir = "./.cache"
 
+[contracts.sip010-trait]
+path = "contracts/sip010-trait.clar"
+clarity_version = 2
+epoch = "3.0"
+
 [contracts.off-ramp]
 path = "contracts/off-ramp.clar"
 clarity_version = 2

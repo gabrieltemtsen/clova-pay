@@ -68,4 +68,9 @@ plan:
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/off-ramp.clar
             clarity-version: 2
+        - emulated-contract-publish:
+            contract-name: sip010-trait
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/sip010-trait.clar
+            clarity-version: 2
       epoch: "3.0"
