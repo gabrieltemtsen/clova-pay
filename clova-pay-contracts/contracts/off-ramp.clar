@@ -215,6 +215,8 @@
 ;; ============================================
 
 ;; Check if user is within cooldown period
+;; @notice Verify user cooldown has elapsed
+;; @param user Principal to check
 (define-private (check-cooldown (user principal))
   (match (map-get? user-rate-limits { user: user })
     limits (>= block-height (+ (get last-order-block limits) (var-get order-cooldown-blocks)))
