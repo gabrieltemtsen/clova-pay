@@ -331,6 +331,8 @@
   (/ (* amount (var-get fee-rate)) FEE_DENOMINATOR)
 )
 
+;; @notice Get contract STX balance
+;; @return uint Balance in uSTX
 (define-read-only (get-contract-balance)
   (stx-get-balance (as-contract tx-sender))
 )
