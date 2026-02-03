@@ -362,6 +362,8 @@
   (var-get order-cooldown-blocks)
 )
 
+;; @notice Get daily limit per user
+;; @return uint Daily limit in uSTX
 (define-read-only (get-daily-limit)
   (var-get daily-limit-per-user)
 )
