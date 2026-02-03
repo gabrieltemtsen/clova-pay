@@ -119,6 +119,8 @@
 ;; Data Maps
 ;; ============================================
 
+;; @notice Main orders storage map
+;; @dev Stores all order details by order ID
 (define-map orders
   { order-id: uint }
   {
