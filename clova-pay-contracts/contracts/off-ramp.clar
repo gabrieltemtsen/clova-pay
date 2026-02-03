@@ -785,6 +785,8 @@
 )
 
 ;; Get token info
+;; @notice Get token configuration
+;; @param token Token contract
 (define-read-only (get-token-info (token principal))
   (map-get? supported-tokens { token: token })
 )
