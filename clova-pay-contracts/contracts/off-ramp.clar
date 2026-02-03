@@ -666,6 +666,8 @@
   )
 )
 
+;; @notice Update treasury address (admin only)
+;; @param new-treasury New treasury address
 (define-public (set-treasury (new-treasury principal))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
