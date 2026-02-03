@@ -30,7 +30,11 @@ const createBankHash = (data: string) => {
   return hash;
 };
 
-// Helper to create a 64-byte buffer for paycrest ref
+/**
+ * Creates a 64-byte buffer for Paycrest reference
+ * @param ref - Reference string to encode
+ * @returns Uint8Array of 64 bytes
+ */
 const createPaycrestRef = (ref: string) => {
   const buffer = new Uint8Array(64);
   const encoder = new TextEncoder();
