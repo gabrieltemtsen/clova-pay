@@ -30,6 +30,14 @@ const createPaycrestRef = (ref: string) => {
 };
 
 describe("ClovaPay Off-Ramp Contract", () => {
+  // Disable cooldown for tests at the start of the test suite
+  beforeEach(() => {
+    // Reset cooldown to 0 for testing (allows multiple orders quickly)
+    simnet.callPublicFn("off-ramp", "set-order-cooldown", [Cl.uint(0)], deployer);
+    // Ensure contract is unpaused
+    simnet.callPublicFn("off-ramp", "set-paused", [Cl.bool(false)], deployer);
+  });
+
   describe("Read-only functions", () => {
     it("should return initial fee rate of 1%", () => {
       const result = simnet.callReadOnlyFn(
