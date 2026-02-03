@@ -589,6 +589,9 @@
 
 ;; Force refund (admin only - for failed Paycrest orders)
 ;; OPTIMIZED: Using is-admin and is-order-cancellable helpers
+;; @notice Force refund an order (admin only)
+;; @param order-id Order to refund
+;; @param reason Refund reason string
 (define-public (force-refund (order-id uint) (reason (string-utf8 100)))
   (let
     (
