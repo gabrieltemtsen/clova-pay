@@ -380,6 +380,12 @@
 
 ;; Create a new off-ramp order
 ;; Locks STX in escrow until confirmed or cancelled
+;; @notice Create a new off-ramp order
+;; @param amount STX amount to deposit
+;; @param fiat-amount Expected fiat amount
+;; @param fiat-currency Target currency (NGN/KES/GHS)
+;; @param bank-details-hash Encrypted bank details
+;; @return (response uint uint) Order ID or error
 (define-public (create-order 
     (amount uint) 
     (fiat-amount uint)
@@ -756,6 +762,12 @@
 )
 
 ;; Create an order using a SIP-010 token instead of STX
+;; @notice Create a new off-ramp order
+;; @param amount STX amount to deposit
+;; @param fiat-amount Expected fiat amount
+;; @param fiat-currency Target currency (NGN/KES/GHS)
+;; @param bank-details-hash Encrypted bank details
+;; @return (response uint uint) Order ID or error
 (define-public (create-order-token
     (token <sip010-trait>)
     (amount uint)
