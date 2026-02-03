@@ -59,7 +59,12 @@
 ;; Fee rate in basis points (100 = 1%)
 (define-constant FEE_DENOMINATOR u10000)
 
-;; Order status constants
+;; ----------------------------------------
+;; Order Status Constants
+;; ----------------------------------------
+;; Status flow: PENDING -> PROCESSING -> CONFIRMED
+;;              PENDING -> CANCELLED (user cancels)
+;;              PENDING|PROCESSING -> REFUNDED (admin refunds)
 (define-constant STATUS_PENDING u0)
 (define-constant STATUS_PROCESSING u1)
 (define-constant STATUS_CONFIRMED u2)
