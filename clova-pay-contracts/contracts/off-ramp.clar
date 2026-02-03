@@ -197,6 +197,8 @@
 )
 
 ;; Check if order status allows cancellation/refund
+;; @notice Check if order can be cancelled
+;; @param order-data Order tuple to check
 (define-private (is-order-cancellable (status uint))
   (or (is-eq status STATUS_PENDING) (is-eq status STATUS_PROCESSING))
 )
