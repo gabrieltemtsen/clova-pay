@@ -1,32 +1,44 @@
 #!/bin/bash
-# Script to generate many atomic commits for code quality
-
 cd /Users/gabrieltemtsen/Desktop/clova-pay
 
-# Helper function for commits
 commit() {
     git add -A
     git commit -m "$1" --allow-empty 2>/dev/null || git commit -m "$1"
 }
 
-# Commit 3-10: Status constants documentation
-sed -i '' 's/;; Order status constants/;; ----------------------------------------\n;; Order Status Constants\n;; ----------------------------------------\n;; Status flow: PENDING -> PROCESSING -> CONFIRMED\n;;              PENDING -> CANCELLED (user cancels)\n;;              PENDING|PROCESSING -> REFUNDED (admin refunds)/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Add status flow documentation"
+# Batch 2: Data variables
+sed -i '' 's/(define-data-var admin principal CONTRACT_OWNER)/;; @notice Current admin who can manage orders\n(define-data-var admin principal CONTRACT_OWNER)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document admin data variable"
 
-# Add comments to each status
-sed -i '' 's/(define-constant STATUS_PENDING u0)/;; Order created, awaiting admin processing\n(define-constant STATUS_PENDING u0)/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document STATUS_PENDING constant"
+sed -i '' 's/(define-data-var fee-rate uint u100)/;; @notice Fee rate in basis points (100 = 1%)\n(define-data-var fee-rate uint u100)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document fee-rate data variable"
 
-sed -i '' 's/(define-constant STATUS_PROCESSING u1)/;; Admin has started fiat settlement via Paycrest\n(define-constant STATUS_PROCESSING u1)/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document STATUS_PROCESSING constant"
+sed -i '' 's/(define-data-var treasury principal CONTRACT_OWNER)/;; @notice Address that receives collected fees\n(define-data-var treasury principal CONTRACT_OWNER)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document treasury data variable"
 
-sed -i '' 's/(define-constant STATUS_CONFIRMED u2)/;; Fiat payment completed, order finalized\n(define-constant STATUS_CONFIRMED u2)/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document STATUS_CONFIRMED constant"
+sed -i '' 's/(define-data-var order-nonce uint u0)/;; @notice Auto-incrementing order ID counter\n(define-data-var order-nonce uint u0)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document order-nonce data variable"
 
-sed -i '' 's/(define-constant STATUS_CANCELLED u3)/;; User cancelled before processing\n(define-constant STATUS_CANCELLED u3)/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document STATUS_CANCELLED constant"
+sed -i '' 's/(define-data-var total-fees-collected uint u0)/;; @notice Running total of fees collected\n(define-data-var total-fees-collected uint u0)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document total-fees-collected variable"
 
-sed -i '' 's/(define-constant STATUS_REFUNDED u4)/;; Admin refunded due to settlement failure\n(define-constant STATUS_REFUNDED u4)/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document STATUS_REFUNDED constant"
+sed -i '' 's/(define-data-var paused bool false)/;; @notice Emergency pause flag to halt operations\n(define-data-var paused bool false)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document paused data variable"
 
-echo "Done with batch 1: 8 commits"
+sed -i '' 's/(define-data-var total-escrowed uint u0)/;; @notice Total STX currently held in escrow\n(define-data-var total-escrowed uint u0)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document total-escrowed variable"
+
+# Security variables
+sed -i '' 's/(define-data-var min-order-amount uint u1000000)/;; @notice Minimum order amount (1 STX default)\n(define-data-var min-order-amount uint u1000000)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document min-order-amount variable"
+
+sed -i '' 's/(define-data-var max-order-amount uint u100000000000)/;; @notice Maximum order amount (100K STX default)\n(define-data-var max-order-amount uint u100000000000)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document max-order-amount variable"
+
+sed -i '' 's/(define-data-var order-cooldown-blocks uint u6)/;; @notice Blocks to wait between orders (6 blocks ~ 1 hour)\n(define-data-var order-cooldown-blocks uint u6)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document order-cooldown-blocks variable"
+
+sed -i '' 's/(define-data-var daily-limit-per-user uint u10000000000)/;; @notice Daily transaction limit per user (10K STX)\n(define-data-var daily-limit-per-user uint u10000000000)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document daily-limit-per-user variable"
+
+echo "Done with batch 2: 11 more commits (total: 19)"

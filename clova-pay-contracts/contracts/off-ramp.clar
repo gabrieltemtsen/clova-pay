@@ -80,6 +80,7 @@
 ;; Data Variables
 ;; ============================================
 
+;; @notice Current admin who can manage orders
 (define-data-var admin principal CONTRACT_OWNER)
 (define-data-var fee-rate uint u100) ;; 1% default
 (define-data-var treasury principal CONTRACT_OWNER)
