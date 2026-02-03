@@ -13,3 +13,6 @@ Create a new order (internal use).
 
 ### PATCH /api/orders/:id/status
 Update order status.
+
+### GET /api/orders/statistics
+Get order statistics summary.
