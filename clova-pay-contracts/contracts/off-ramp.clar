@@ -137,6 +137,7 @@
   }
 )
 
+;; @notice Tracks order IDs per user (max 50)
 (define-map user-orders
   { user: principal }
   { order-ids: (list 50 uint) }
