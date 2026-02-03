@@ -704,6 +704,8 @@
 ;; Security Configuration (Admin Only)
 ;; ============================================
 
+;; @notice Set minimum order amount (admin only)
+;; @param new-min New minimum in uSTX
 (define-public (set-min-order-amount (new-min uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)

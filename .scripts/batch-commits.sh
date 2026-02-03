@@ -6,38 +6,38 @@ commit() {
     git commit -m "$1" --allow-empty 2>/dev/null || git commit -m "$1"
 }
 
-# Batch 5: Public functions
-sed -i '' 's/(define-public (create-order/;; @notice Create a new off-ramp order\n;; @param amount STX amount to deposit\n;; @param fiat-amount Expected fiat amount\n;; @param fiat-currency Target currency (NGN\/KES\/GHS)\n;; @param bank-details-hash Encrypted bank details\n;; @return (response uint uint) Order ID or error\n(define-public (create-order/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document create-order function"
+# Batch 6: Security admin functions and token/currency
+sed -i '' 's/(define-public (set-min-order-amount/;; @notice Set minimum order amount (admin only)\n;; @param new-min New minimum in uSTX\n(define-public (set-min-order-amount/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document set-min-order-amount function"
 
-sed -i '' 's/(define-public (create-order-with-token/;; @notice Create order with SIP-010 token\n;; @param token Token contract principal\n;; @param amount Token amount to deposit\n(define-public (create-order-with-token/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document create-order-with-token function"
+sed -i '' 's/(define-public (set-max-order-amount/;; @notice Set maximum order amount (admin only)\n;; @param new-max New maximum in uSTX\n(define-public (set-max-order-amount/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document set-max-order-amount function"
 
-sed -i '' 's/(define-public (cancel-order/;; @notice Cancel a pending order (user only)\n;; @param order-id Order to cancel\n;; @return (response bool uint)\n(define-public (cancel-order/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document cancel-order function"
+sed -i '' 's/(define-public (set-order-cooldown/;; @notice Set cooldown between orders (admin only)\n;; @param new-cooldown Blocks to wait\n(define-public (set-order-cooldown/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document set-order-cooldown function"
 
-sed -i '' 's/(define-public (mark-processing/;; @notice Mark order as processing (admin only)\n;; @param order-id Order to mark\n(define-public (mark-processing/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document mark-processing function"
+sed -i '' 's/(define-public (set-daily-limit/;; @notice Set daily limit per user (admin only)\n;; @param new-limit New limit in uSTX\n(define-public (set-daily-limit/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document set-daily-limit function"
 
-sed -i '' 's/(define-public (confirm-order/;; @notice Confirm order completion (admin only)\n;; @param order-id Order to confirm\n;; @param paycrest-ref Paycrest transaction reference\n(define-public (confirm-order/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document confirm-order function"
+sed -i '' 's/(define-public (set-token-enabled/;; @notice Enable or disable a token (admin only)\n;; @param token Token contract principal\n;; @param enabled Whether to enable\n;; @param name Token display name\n(define-public (set-token-enabled/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document set-token-enabled function"
 
-sed -i '' 's/(define-public (force-refund/;; @notice Force refund an order (admin only)\n;; @param order-id Order to refund\n;; @param reason Refund reason string\n(define-public (force-refund/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document force-refund function"
+sed -i '' 's/(define-read-only (is-token-supported/;; @notice Check if token is whitelisted\n;; @param token Token to check\n;; @return bool True if supported\n(define-read-only (is-token-supported/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document is-token-supported function"
 
-sed -i '' 's/(define-public (withdraw-fees/;; @notice Withdraw collected fees (admin only)\n;; @param amount Amount to withdraw\n(define-public (withdraw-fees/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document withdraw-fees function"
+sed -i '' 's/(define-public (set-currency-enabled/;; @notice Enable or disable a currency (admin only)\n;; @param currency 3-letter currency code\n;; @param enabled Whether to enable\n;; @param name Currency display name\n;; @param min-amount Minimum fiat amount\n(define-public (set-currency-enabled/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document set-currency-enabled function"
 
-sed -i '' 's/(define-public (set-admin/;; @notice Transfer admin role (admin only)\n;; @param new-admin New admin address\n(define-public (set-admin/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document set-admin function"
+sed -i '' 's/(define-read-only (is-currency-supported/;; @notice Check if currency is whitelisted\n;; @param currency Currency code to check\n;; @return bool True if supported\n(define-read-only (is-currency-supported/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document is-currency-supported function"
 
-sed -i '' 's/(define-public (set-treasury/;; @notice Update treasury address (admin only)\n;; @param new-treasury New treasury address\n(define-public (set-treasury/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document set-treasury function"
+sed -i '' 's/(define-read-only (get-currency-info/;; @notice Get currency configuration\n;; @param currency Currency code\n(define-read-only (get-currency-info/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document get-currency-info function"
 
-sed -i '' 's/(define-public (set-fee-rate/;; @notice Update fee rate (admin only, max 5%)\n;; @param new-fee-rate New rate in basis points\n(define-public (set-fee-rate/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document set-fee-rate function"
+sed -i '' 's/(define-read-only (get-supported-currencies)/;; @notice Get list of default currencies\n;; @return List of currency codes\n(define-read-only (get-supported-currencies)/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document get-supported-currencies function"
 
-sed -i '' 's/(define-public (set-paused/;; @notice Toggle emergency pause (admin only)\n;; @param is-paused New pause state\n(define-public (set-paused/' clova-pay-contracts/contracts/off-ramp.clar
-commit "docs: Document set-paused function"
+sed -i '' 's/(define-read-only (get-token-info/;; @notice Get token configuration\n;; @param token Token contract\n(define-read-only (get-token-info/' clova-pay-contracts/contracts/off-ramp.clar
+commit "docs: Document get-token-info function"
 
-echo "Done with batch 5: 11 more commits (total: 58)"
+echo "Done with batch 6: 11 more commits (total: 69)"
