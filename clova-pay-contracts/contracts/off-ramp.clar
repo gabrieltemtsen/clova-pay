@@ -285,6 +285,8 @@
   (var-get fee-rate)
 )
 
+;; @notice Get current admin address
+;; @return principal Current admin
 (define-read-only (get-admin)
   (var-get admin)
 )
