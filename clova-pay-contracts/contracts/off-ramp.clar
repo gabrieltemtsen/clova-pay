@@ -90,6 +90,7 @@
 (define-data-var order-nonce uint u0)
 ;; @notice Running total of fees collected
 (define-data-var total-fees-collected uint u0)
+;; @notice Emergency pause flag to halt operations
 (define-data-var paused bool false)
 
 ;; Track total escrowed STX for accounting
