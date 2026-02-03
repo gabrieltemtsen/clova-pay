@@ -368,6 +368,8 @@
   (var-get daily-limit-per-user)
 )
 
+;; @notice Get user rate limit data
+;; @param user Principal to look up
 (define-read-only (get-user-rate-limits (user principal))
   (map-get? user-rate-limits { user: user })
 )
