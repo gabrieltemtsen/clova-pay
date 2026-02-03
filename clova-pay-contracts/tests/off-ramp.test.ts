@@ -243,6 +243,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Order Cancellation ---
   describe("Order Cancellation", () => {
     it("should allow user to cancel their pending order", () => {
       const bankHash = createBankHash("cancel-test");
