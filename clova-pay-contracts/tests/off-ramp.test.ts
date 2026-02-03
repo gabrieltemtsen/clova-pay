@@ -55,6 +55,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     simnet.callPublicFn("off-ramp", "set-paused", [Cl.bool(false)], deployer);
   });
 
+  // --- Read-Only Functions ---
   describe("Read-only functions", () => {
     it("should return initial fee rate of 1%", () => {
       const result = simnet.callReadOnlyFn(
