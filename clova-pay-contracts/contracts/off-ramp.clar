@@ -98,6 +98,12 @@
   { token: principal }
 )
 
+;; Supported fiat currencies map
+(define-map supported-currencies
+  { currency: (string-ascii 3) }
+  { enabled: bool, name: (string-ascii 32), min-amount: uint }
+)
+
 ;; User rate limiting map (tracks cooldowns and daily volume)
 (define-map user-rate-limits
   { user: principal }
@@ -625,6 +631,45 @@
     token-data (get enabled token-data)
     false
   )
+)
+
+;; ============================================
+;; Currency Support Functions
+;; ============================================
+
+;; Admin: Enable or disable a fiat currency
+(define-public (set-currency-enabled 
+    (currency (string-ascii 3)) 
+    (enabled bool) 
+    (name (string-ascii 32))
+    (min-amount uint))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (map-set supported-currencies
+      { currency: currency }
+      { enabled: enabled, name: name, min-amount: min-amount }
+    )
+    (print { event: "currency-updated", currency: currency, enabled: enabled, name: name })
+    (ok true)
+  )
+)
+
+;; Check if a currency is supported
+(define-read-only (is-currency-supported (currency (string-ascii 3)))
+  (match (map-get? supported-currencies { currency: currency })
+    currency-data (get enabled currency-data)
+    true  ;; Default: all currencies accepted if not explicitly disabled
+  )
+)
+
+;; Get currency info
+(define-read-only (get-currency-info (currency (string-ascii 3)))
+  (map-get? supported-currencies { currency: currency })
+)
+
+;; Get list of currently active currencies (Nigerian Naira, Kenyan Shilling, Ghanaian Cedi)
+(define-read-only (get-supported-currencies)
+  (list "NGN" "KES" "GHS")
 )
 
 ;; Get token info
