@@ -236,6 +236,30 @@
 )
 
 ;; ============================================
+;; Security Configuration Getters
+;; ============================================
+
+(define-read-only (get-min-order-amount)
+  (var-get min-order-amount)
+)
+
+(define-read-only (get-max-order-amount)
+  (var-get max-order-amount)
+)
+
+(define-read-only (get-order-cooldown)
+  (var-get order-cooldown-blocks)
+)
+
+(define-read-only (get-daily-limit)
+  (var-get daily-limit-per-user)
+)
+
+(define-read-only (get-user-rate-limits (user principal))
+  (map-get? user-rate-limits { user: user })
+)
+
+;; ============================================
 ;; Public Functions - User Actions
 ;; ============================================
 
