@@ -757,6 +757,10 @@
 
 ;; Admin: Enable or disable a SIP-010 token for deposits
 ;; OPTIMIZED: Using is-admin helper
+;; @notice Enable or disable a token (admin only)
+;; @param token Token contract principal
+;; @param enabled Whether to enable
+;; @param name Token display name
 (define-public (set-token-enabled (token principal) (enabled bool) (name (string-ascii 32)))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
