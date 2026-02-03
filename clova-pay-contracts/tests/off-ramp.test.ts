@@ -725,6 +725,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Accounting & Escrow ---
   describe("Accounting & Escrow", () => {
     it("should track escrowed amount", () => {
       const bankHash = createBankHash("escrow-track-test");
