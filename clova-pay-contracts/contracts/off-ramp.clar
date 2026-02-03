@@ -104,6 +104,7 @@
 ;; Min/Max order amounts in micro-STX (1 STX = 1,000,000 micro-STX)
 ;; @notice Minimum order amount (1 STX default)
 (define-data-var min-order-amount uint u1000000)     ;; 1 STX minimum
+;; @notice Maximum order amount (100K STX default)
 (define-data-var max-order-amount uint u100000000000) ;; 100,000 STX maximum
 
 ;; Cooldown between orders in blocks (~10 min = ~60 blocks)
