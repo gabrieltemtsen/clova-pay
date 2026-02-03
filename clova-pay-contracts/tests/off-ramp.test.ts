@@ -149,6 +149,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Order Creation ---
   describe("Order Creation", () => {
     it("should create an order successfully", () => {
       const amount = 10000000; // 10 STX
