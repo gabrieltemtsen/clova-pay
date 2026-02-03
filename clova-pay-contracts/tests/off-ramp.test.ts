@@ -1,3 +1,9 @@
+/**
+ * @file off-ramp.test.ts
+ * @description Comprehensive test suite for ClovaPay Off-Ramp Contract
+ * @author ClovaPay Team
+ * @version 1.0.0
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import { Cl, ClarityType } from "@stacks/transactions";
 import { initSimnet } from "@hirosystems/clarinet-sdk";
