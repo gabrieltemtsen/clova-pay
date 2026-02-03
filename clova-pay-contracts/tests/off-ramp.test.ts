@@ -537,4 +537,124 @@ describe("ClovaPay Off-Ramp Contract", () => {
       expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
     });
   });
+
+  describe("Token Support", () => {
+    it("should allow admin to enable a token", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-token-enabled",
+        [
+          Cl.principal(deployer), // Mock token address
+          Cl.bool(true),
+          Cl.stringAscii("USDC"),
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should allow admin to disable a token", () => {
+      // First enable
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-token-enabled",
+        [
+          Cl.principal(wallet1), // Mock token
+          Cl.bool(true),
+          Cl.stringAscii("sBTC"),
+        ],
+        deployer
+      );
+
+      // Then disable
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-token-enabled",
+        [
+          Cl.principal(wallet1),
+          Cl.bool(false),
+          Cl.stringAscii("sBTC"),
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should check if token is supported", () => {
+      // Enable a token first
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-token-enabled",
+        [
+          Cl.principal(deployer),
+          Cl.bool(true),
+          Cl.stringAscii("TEST"),
+        ],
+        deployer
+      );
+
+      // Check if supported
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "is-token-supported",
+        [Cl.principal(deployer)],
+        deployer
+      );
+
+      expect(result.result).toBeBool(true);
+    });
+  });
+
+  describe("Edge Cases", () => {
+    it("should return none for non-existent order", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-order",
+        [Cl.uint(999999)], // Non-existent order
+        deployer
+      );
+
+      expect(result.result.type).toBe(ClarityType.OptionalNone);
+    });
+
+    it("should reject duplicate confirmation", () => {
+      const bankHash = createBankHash("dup-confirm-test");
+      const paycrestRef = createPaycrestRef("DUP-REF-123");
+
+      // Create order
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(5000000),
+          Cl.uint(25000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      // First confirmation
+      simnet.callPublicFn(
+        "off-ramp",
+        "confirm-order",
+        [Cl.uint(orderId), Cl.buffer(paycrestRef)],
+        deployer
+      );
+
+      // Try second confirmation
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "confirm-order",
+        [Cl.uint(orderId), Cl.buffer(paycrestRef)],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(105)); // ERR_ALREADY_CONFIRMED
+    });
+  });
 });
