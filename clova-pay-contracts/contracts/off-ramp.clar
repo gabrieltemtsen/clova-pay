@@ -151,6 +151,7 @@
 )
 
 ;; Token orders map (tracks token type per order)
+;; @notice Maps order ID to token used for deposit
 (define-map token-orders
   { order-id: uint }
   { token: principal }
