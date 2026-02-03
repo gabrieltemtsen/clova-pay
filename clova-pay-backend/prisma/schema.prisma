@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Order model - tracks off-ramp orders from Stacks to fiat
+model Order {
+  id              String      @id @default(cuid())
+  stacksOrderId   Int         @unique  // Order ID from smart contract
+  txId            String?               // Stacks transaction ID
+  sender          String                // Sender's Stacks address
+  amount          BigInt                // Amount in micro-STX or token units
+  fee             BigInt                // Fee in micro-STX or token units
+  fiatAmount      BigInt                // Amount in fiat (smallest unit, e.g., kobo)
+  fiatCurrency    String                // Currency code (NGN, KES, etc.)
+  bankDetailsHash String                // Hash of bank details
+  status          String      @default("PENDING")
+  paycrestOrderId String?               // Paycrest order reference
+  paycrestStatus  String?               // Paycrest settlement status
+  tokenContract   String?               // SIP-010 token address (null = STX)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  confirmedAt     DateTime?
+
+  @@index([sender])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Webhook events log for debugging
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  source      String   // "stacks" or "paycrest"
+  eventType   String
+  payload     String   // JSON payload
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
