@@ -225,6 +225,9 @@
 )
 
 ;; Check and update daily volume (returns new volume if OK, none if exceeded)
+;; @notice Check and update daily volume tracking
+;; @param user Principal to check
+;; @param amount Order amount to add
 (define-private (check-and-update-daily-limit (user principal) (amount uint))
   (let
     (
