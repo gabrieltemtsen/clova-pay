@@ -312,6 +312,8 @@
   (var-get total-fees-collected)
 )
 
+;; @notice Get total amount in escrow
+;; @return uint Total escrowed uSTX
 (define-read-only (get-total-escrowed)
   (var-get total-escrowed)
 )
