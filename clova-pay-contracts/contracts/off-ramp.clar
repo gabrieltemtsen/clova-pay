@@ -511,6 +511,8 @@
 
 ;; Mark order as processing (backend picked it up)
 ;; OPTIMIZED: Using is-admin helper reduces var-get calls
+;; @notice Mark order as processing (admin only)
+;; @param order-id Order to mark
 (define-public (mark-processing (order-id uint))
   (let
     ((order (unwrap! (get-order order-id) ERR_ORDER_NOT_FOUND)))
