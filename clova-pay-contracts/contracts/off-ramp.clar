@@ -1,8 +1,24 @@
-;; ClovaPay Off-Ramp Contract
-;; Escrow contract for crypto-to-fiat conversions via Paycrest bridge
-;; Supports both STX and SIP-010 tokens
+;; ============================================
+;; ClovaPay Off-Ramp Contract v1.0.0
+;; ============================================
+;; 
+;; @title Off-Ramp Escrow Contract
+;; @author ClovaPay Team
+;; @notice Escrow contract for crypto-to-fiat conversions via Paycrest bridge
+;; @dev Supports both STX and SIP-010 tokens for deposits
+;; @version 1.0.0
+;; @license MIT
+;;
+;; Features:
+;; - STX and SIP-010 token deposits
+;; - Escrow management with status tracking
+;; - Rate limiting and security controls
+;; - Multi-currency fiat support (NGN, KES, GHS)
+;; - Admin controls for configuration
+;;
+;; ============================================
 
-;; Import SIP-010 trait
+;; Import SIP-010 trait for fungible token support
 (use-trait sip010-trait .sip010-trait.sip010-trait)
 
 ;; ============================================
