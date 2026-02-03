@@ -17,7 +17,11 @@ const wallet2 = accounts.get("wallet_2")!;
 // Track order nonce for dynamic ID checking
 let currentOrderNonce = 0;
 
-// Helper to create a 32-byte buffer for bank details hash
+/**
+ * Creates a 32-byte buffer for bank details hash
+ * @param data - String to encode
+ * @returns Uint8Array of 32 bytes
+ */
 const createBankHash = (data: string) => {
   const hash = new Uint8Array(32);
   const encoder = new TextEncoder();
