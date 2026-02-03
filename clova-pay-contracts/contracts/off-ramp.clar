@@ -204,6 +204,8 @@
 )
 
 ;; Validate order exists and is in valid state for confirmation
+;; @notice Check if order can be confirmed
+;; @param order-data Order tuple to check
 (define-private (is-order-confirmable (status uint))
   (or (is-eq status STATUS_PENDING) (is-eq status STATUS_PROCESSING))
 )
