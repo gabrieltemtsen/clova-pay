@@ -300,6 +300,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Admin Functions ---
   describe("Admin Functions", () => {
     it("should allow admin to mark order as processing", () => {
       const bankHash = createBankHash("processing-test");
