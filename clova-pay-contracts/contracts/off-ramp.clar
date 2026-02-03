@@ -190,6 +190,8 @@
 ;; 3. Reducing duplicate status comparisons
 
 ;; Check if caller is admin (caches var-get)
+;; @notice Check if caller is admin
+;; @return bool True if tx-sender is admin
 (define-private (is-admin)
   (is-eq tx-sender (var-get admin))
 )
