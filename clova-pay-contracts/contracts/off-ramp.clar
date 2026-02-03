@@ -18,6 +18,10 @@
 (define-constant ERR_ALREADY_CONFIRMED (err u105))
 (define-constant ERR_TRANSFER_FAILED (err u106))
 (define-constant ERR_TOKEN_NOT_SUPPORTED (err u107))
+(define-constant ERR_AMOUNT_TOO_LOW (err u108))
+(define-constant ERR_AMOUNT_TOO_HIGH (err u109))
+(define-constant ERR_COOLDOWN_ACTIVE (err u110))
+(define-constant ERR_DAILY_LIMIT_EXCEEDED (err u111))
 
 ;; Fee rate in basis points (100 = 1%)
 (define-constant FEE_DENOMINATOR u10000)
@@ -42,6 +46,20 @@
 
 ;; Track total escrowed STX for accounting
 (define-data-var total-escrowed uint u0)
+
+;; ============================================
+;; Security: Order Limits & Rate Limiting
+;; ============================================
+
+;; Min/Max order amounts in micro-STX (1 STX = 1,000,000 micro-STX)
+(define-data-var min-order-amount uint u1000000)     ;; 1 STX minimum
+(define-data-var max-order-amount uint u100000000000) ;; 100,000 STX maximum
+
+;; Cooldown between orders in blocks (~10 min = ~60 blocks)
+(define-data-var order-cooldown-blocks uint u6)      ;; ~1 minute cooldown
+
+;; Daily limit per user in micro-STX (resets every 144 blocks ~24hrs)
+(define-data-var daily-limit-per-user uint u10000000000) ;; 10,000 STX per day
 
 ;; ============================================
 ;; Data Maps
@@ -80,6 +98,16 @@
   { token: principal }
 )
 
+;; User rate limiting map (tracks cooldowns and daily volume)
+(define-map user-rate-limits
+  { user: principal }
+  { 
+    last-order-block: uint,      ;; Block height of last order
+    daily-volume: uint,          ;; Volume in current day window
+    day-start-block: uint        ;; Block when daily volume started counting
+  }
+)
+
 ;; ============================================
 ;; Private Helper Functions
 ;; ============================================
@@ -110,6 +138,53 @@
 ;; Validate order exists and is in valid state for confirmation
 (define-private (is-order-confirmable (status uint))
   (or (is-eq status STATUS_PENDING) (is-eq status STATUS_PROCESSING))
+)
+
+;; ============================================
+;; Security Validation Helpers
+;; ============================================
+
+;; Check if user is within cooldown period
+(define-private (check-cooldown (user principal))
+  (match (map-get? user-rate-limits { user: user })
+    limits (>= block-height (+ (get last-order-block limits) (var-get order-cooldown-blocks)))
+    true  ;; No previous order, cooldown passes
+  )
+)
+
+;; Check and update daily volume (returns new volume if OK, none if exceeded)
+(define-private (check-and-update-daily-limit (user principal) (amount uint))
+  (let
+    (
+      (day-blocks u144)  ;; ~24 hours in blocks
+      (current-limits (default-to 
+        { last-order-block: u0, daily-volume: u0, day-start-block: u0 }
+        (map-get? user-rate-limits { user: user })
+      ))
+      (day-start (get day-start-block current-limits))
+      (current-volume (get daily-volume current-limits))
+      ;; Reset volume if new day
+      (is-new-day (> (- block-height day-start) day-blocks))
+      (effective-volume (if is-new-day u0 current-volume))
+      (new-volume (+ effective-volume amount))
+      (new-day-start (if is-new-day block-height day-start))
+    )
+    ;; Update the map and check limit
+    (if (<= new-volume (var-get daily-limit-per-user))
+      (begin
+        (map-set user-rate-limits
+          { user: user }
+          { 
+            last-order-block: block-height,
+            daily-volume: new-volume,
+            day-start-block: new-day-start
+          }
+        )
+        (some new-volume)
+      )
+      none
+    )
+  )
 )
 
 ;; ============================================
@@ -177,11 +252,21 @@
       (fee (calculate-fee amount))
       (caller tx-sender)
     )
-    ;; Validations
+    ;; Basic validations
     (asserts! (not (var-get paused)) ERR_NOT_AUTHORIZED)
     (asserts! (> amount u0) ERR_INVALID_AMOUNT)
     (asserts! (> fiat-amount u0) ERR_INVALID_AMOUNT)
     (asserts! (>= (stx-get-balance caller) amount) ERR_INSUFFICIENT_BALANCE)
+
+    ;; Security checks: amount limits
+    (asserts! (>= amount (var-get min-order-amount)) ERR_AMOUNT_TOO_LOW)
+    (asserts! (<= amount (var-get max-order-amount)) ERR_AMOUNT_TOO_HIGH)
+
+    ;; Security checks: cooldown between orders
+    (asserts! (check-cooldown caller) ERR_COOLDOWN_ACTIVE)
+
+    ;; Security checks: daily volume limit (also updates tracking)
+    (asserts! (is-some (check-and-update-daily-limit caller amount)) ERR_DAILY_LIMIT_EXCEEDED)
 
     ;; Transfer STX to contract (escrow) - user sends to contract
     (try! (stx-transfer? amount caller (as-contract tx-sender)))
@@ -445,6 +530,49 @@
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
     (var-set paused new-paused)
     (print { event: "pause-toggled", paused: new-paused })
+    (ok true)
+  )
+)
+
+;; ============================================
+;; Security Configuration (Admin Only)
+;; ============================================
+
+(define-public (set-min-order-amount (new-min uint))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (asserts! (> new-min u0) ERR_INVALID_AMOUNT)
+    (var-set min-order-amount new-min)
+    (print { event: "min-order-updated", new-min: new-min })
+    (ok true)
+  )
+)
+
+(define-public (set-max-order-amount (new-max uint))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (asserts! (> new-max (var-get min-order-amount)) ERR_INVALID_AMOUNT)
+    (var-set max-order-amount new-max)
+    (print { event: "max-order-updated", new-max: new-max })
+    (ok true)
+  )
+)
+
+(define-public (set-order-cooldown (new-cooldown uint))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (var-set order-cooldown-blocks new-cooldown)
+    (print { event: "cooldown-updated", new-cooldown: new-cooldown })
+    (ok true)
+  )
+)
+
+(define-public (set-daily-limit (new-limit uint))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (asserts! (> new-limit u0) ERR_INVALID_AMOUNT)
+    (var-set daily-limit-per-user new-limit)
+    (print { event: "daily-limit-updated", new-limit: new-limit })
     (ok true)
   )
 )
