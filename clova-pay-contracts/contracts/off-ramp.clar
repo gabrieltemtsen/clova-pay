@@ -728,6 +728,8 @@
   )
 )
 
+;; @notice Set cooldown between orders (admin only)
+;; @param new-cooldown Blocks to wait
 (define-public (set-order-cooldown (new-cooldown uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
