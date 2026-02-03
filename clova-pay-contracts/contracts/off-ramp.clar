@@ -356,6 +356,8 @@
 ;; @notice Get order details by ID
 ;; @param order-id Order ID to look up
 ;; @return Optional order tuple
+;; @notice Get order cooldown in blocks
+;; @return uint Cooldown blocks
 (define-read-only (get-order-cooldown)
   (var-get order-cooldown-blocks)
 )
