@@ -536,6 +536,9 @@
 
 ;; Confirm order after Paycrest settlement
 ;; OPTIMIZED: Using is-admin and is-order-confirmable helpers
+;; @notice Confirm order completion (admin only)
+;; @param order-id Order to confirm
+;; @param paycrest-ref Paycrest transaction reference
 (define-public (confirm-order (order-id uint) (paycrest-ref (buff 64)))
   (let
     (
