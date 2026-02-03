@@ -10,3 +10,6 @@ Get order by ID.
 
 ### POST /api/orders
 Create a new order (internal use).
+
+### PATCH /api/orders/:id/status
+Update order status.
