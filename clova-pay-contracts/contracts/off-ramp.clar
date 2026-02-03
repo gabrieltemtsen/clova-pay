@@ -71,6 +71,7 @@
 (define-constant STATUS_PROCESSING u1)
 ;; Fiat payment completed, order finalized
 (define-constant STATUS_CONFIRMED u2)
+;; User cancelled before processing
 (define-constant STATUS_CANCELLED u3)
 (define-constant STATUS_REFUNDED u4)
 
