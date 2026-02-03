@@ -25,18 +25,35 @@
 ;; Constants
 ;; ============================================
 
+;; Contract deployer set as initial owner
 (define-constant CONTRACT_OWNER tx-sender)
+
+;; ----------------------------------------
+;; Error Codes (u100-u199 range)
+;; ----------------------------------------
+;; u100: Caller is not authorized to perform this action
 (define-constant ERR_NOT_AUTHORIZED (err u100))
+;; u101: Amount is invalid (zero or negative)
 (define-constant ERR_INVALID_AMOUNT (err u101))
+;; u102: Order with given ID does not exist
 (define-constant ERR_ORDER_NOT_FOUND (err u102))
+;; u103: Order is not in pending status
 (define-constant ERR_ORDER_NOT_PENDING (err u103))
+;; u104: User does not have enough balance
 (define-constant ERR_INSUFFICIENT_BALANCE (err u104))
+;; u105: Order has already been confirmed
 (define-constant ERR_ALREADY_CONFIRMED (err u105))
+;; u106: STX or token transfer failed
 (define-constant ERR_TRANSFER_FAILED (err u106))
+;; u107: Token is not in the whitelist
 (define-constant ERR_TOKEN_NOT_SUPPORTED (err u107))
+;; u108: Amount is below minimum order limit
 (define-constant ERR_AMOUNT_TOO_LOW (err u108))
+;; u109: Amount exceeds maximum order limit
 (define-constant ERR_AMOUNT_TOO_HIGH (err u109))
+;; u110: User must wait before creating another order
 (define-constant ERR_COOLDOWN_ACTIVE (err u110))
+;; u111: User has exceeded their daily volume limit
 (define-constant ERR_DAILY_LIMIT_EXCEEDED (err u111))
 
 ;; Fee rate in basis points (100 = 1%)
