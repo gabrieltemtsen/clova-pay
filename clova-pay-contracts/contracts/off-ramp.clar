@@ -279,6 +279,8 @@
   (default-to { order-ids: (list) } (map-get? user-orders { user: user }))
 )
 
+;; @notice Get current fee rate in basis points
+;; @return uint Fee rate (100 = 1%)
 (define-read-only (get-fee-rate)
   (var-get fee-rate)
 )
