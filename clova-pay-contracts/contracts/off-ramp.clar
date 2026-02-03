@@ -291,6 +291,8 @@
   (var-get admin)
 )
 
+;; @notice Get treasury address for fees
+;; @return principal Treasury address
 (define-read-only (get-treasury)
   (var-get treasury)
 )
