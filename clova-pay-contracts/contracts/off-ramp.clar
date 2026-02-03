@@ -300,6 +300,8 @@
 ;; @notice Get order details by ID
 ;; @param order-id Order ID to look up
 ;; @return Optional order tuple
+;; @notice Get current order count
+;; @return uint Total orders created
 (define-read-only (get-order-nonce)
   (var-get order-nonce)
 )
