@@ -673,6 +673,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Edge Cases ---
   describe("Edge Cases", () => {
     it("should return none for non-existent order", () => {
       const result = simnet.callReadOnlyFn(
