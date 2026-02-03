@@ -689,6 +689,8 @@
   )
 )
 
+;; @notice Toggle emergency pause (admin only)
+;; @param is-paused New pause state
 (define-public (set-paused (new-paused bool))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
