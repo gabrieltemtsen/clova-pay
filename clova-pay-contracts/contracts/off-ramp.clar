@@ -655,6 +655,8 @@
 ;; Admin Configuration
 ;; ============================================
 
+;; @notice Transfer admin role (admin only)
+;; @param new-admin New admin address
 (define-public (set-admin (new-admin principal))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
