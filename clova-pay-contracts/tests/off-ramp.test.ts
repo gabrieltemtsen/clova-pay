@@ -421,6 +421,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Configuration ---
   describe("Configuration", () => {
     it("should allow admin to update fee rate", () => {
       const block = simnet.callPublicFn(
