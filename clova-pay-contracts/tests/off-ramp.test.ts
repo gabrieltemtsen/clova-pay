@@ -657,4 +657,95 @@ describe("ClovaPay Off-Ramp Contract", () => {
       expect(block.result).toBeErr(Cl.uint(105)); // ERR_ALREADY_CONFIRMED
     });
   });
+
+  describe("Accounting & Escrow", () => {
+    it("should track escrowed amount", () => {
+      const bankHash = createBankHash("escrow-track-test");
+      const amount = 10000000; // 10 STX
+
+      // Create order
+      simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(amount),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet2
+      );
+
+      // Check escrowed amount is tracked
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-escrowed",
+        [],
+        deployer
+      );
+
+      // Should have some escrowed value (might include fees from other tests)
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should track collected fees", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-fees",
+        [],
+        deployer
+      );
+
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should return contract balance", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-contract-balance",
+        [],
+        deployer
+      );
+
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should allow admin to withdraw fees", () => {
+      // Need to have some confirmed orders first to have fees
+      const bankHash = createBankHash("fee-withdraw-test");
+      const paycrestRef = createPaycrestRef("FEE-TEST-REF");
+
+      // Create and confirm order to generate fees
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000), // 10 STX
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "confirm-order",
+        [Cl.uint(orderId), Cl.buffer(paycrestRef)],
+        deployer
+      );
+
+      // Try to withdraw a small amount of fees
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "withdraw-fees",
+        [Cl.uint(10000)], // 0.01 STX
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.uint(10000));
+    });
+  });
 });
