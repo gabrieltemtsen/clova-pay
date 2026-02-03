@@ -347,6 +347,8 @@
   (var-get min-order-amount)
 )
 
+;; @notice Get maximum order amount
+;; @return uint Maximum in uSTX
 (define-read-only (get-max-order-amount)
   (var-get max-order-amount)
 )
