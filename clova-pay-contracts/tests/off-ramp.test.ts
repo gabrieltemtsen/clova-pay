@@ -556,6 +556,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Security: Cooldown & Daily Limits ---
   describe("Security: Cooldown & Daily Limits", () => {
     it("should allow admin to set cooldown", () => {
       const block = simnet.callPublicFn(
