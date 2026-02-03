@@ -112,6 +112,7 @@
 (define-data-var order-cooldown-blocks uint u6)      ;; ~1 minute cooldown
 
 ;; Daily limit per user in micro-STX (resets every 144 blocks ~24hrs)
+;; @notice Daily transaction limit per user (10K STX)
 (define-data-var daily-limit-per-user uint u10000000000) ;; 10,000 STX per day
 
 ;; ============================================
