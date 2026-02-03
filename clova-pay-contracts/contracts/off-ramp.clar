@@ -774,6 +774,9 @@
 )
 
 ;; Check if a token is supported
+;; @notice Check if token is whitelisted
+;; @param token Token to check
+;; @return bool True if supported
 (define-read-only (is-token-supported (token principal))
   (match (map-get? supported-tokens { token: token })
     token-data (get enabled token-data)
