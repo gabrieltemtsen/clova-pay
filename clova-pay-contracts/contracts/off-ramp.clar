@@ -158,6 +158,8 @@
 )
 
 ;; User rate limiting map (tracks cooldowns and daily volume)
+;; @notice Rate limiting data per user
+;; @dev Tracks cooldowns and daily volume
 (define-map user-rate-limits
   { user: principal }
   { 
