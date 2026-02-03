@@ -491,4 +491,50 @@ describe("ClovaPay Off-Ramp Contract", () => {
       expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
     });
   });
+
+  describe("Security: Cooldown & Daily Limits", () => {
+    it("should allow admin to set cooldown", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-order-cooldown",
+        [Cl.uint(10)], // 10 blocks
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should allow admin to set daily limit", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-daily-limit",
+        [Cl.uint(50000000000)], // 50K STX
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should reject non-admin from setting cooldown", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-order-cooldown",
+        [Cl.uint(10)],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+    });
+
+    it("should reject non-admin from setting daily limit", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-daily-limit",
+        [Cl.uint(1000000)],
+        wallet2
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+    });
+  });
 });
