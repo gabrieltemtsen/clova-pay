@@ -629,6 +629,8 @@
 
 ;; Withdraw collected fees
 ;; OPTIMIZED: Using is-admin helper
+;; @notice Withdraw collected fees (admin only)
+;; @param amount Amount to withdraw
 (define-public (withdraw-fees (amount uint))
   (let
     ((current-treasury (var-get treasury)))
