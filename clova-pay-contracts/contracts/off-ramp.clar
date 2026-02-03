@@ -73,6 +73,7 @@
 (define-constant STATUS_CONFIRMED u2)
 ;; User cancelled before processing
 (define-constant STATUS_CANCELLED u3)
+;; Admin refunded due to settlement failure
 (define-constant STATUS_REFUNDED u4)
 
 ;; ============================================
