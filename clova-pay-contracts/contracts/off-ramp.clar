@@ -144,6 +144,7 @@
 )
 
 ;; Supported SIP-010 tokens map
+;; @notice Whitelist of supported SIP-010 tokens
 (define-map supported-tokens
   { token: principal }
   { enabled: bool, name: (string-ascii 32) }
