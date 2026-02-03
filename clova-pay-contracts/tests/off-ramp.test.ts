@@ -35,6 +35,9 @@ const createPaycrestRef = (ref: string) => {
   return buffer;
 };
 
+// ============================================
+// Main Test Suite
+// ============================================
 describe("ClovaPay Off-Ramp Contract", () => {
   // Disable cooldown for tests at the start of the test suite
   beforeEach(() => {
