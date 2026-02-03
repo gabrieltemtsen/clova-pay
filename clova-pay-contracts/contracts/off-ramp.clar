@@ -739,6 +739,8 @@
   )
 )
 
+;; @notice Set daily limit per user (admin only)
+;; @param new-limit New limit in uSTX
 (define-public (set-daily-limit (new-limit uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
