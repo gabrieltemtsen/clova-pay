@@ -677,6 +677,8 @@
   )
 )
 
+;; @notice Update fee rate (admin only, max 5%)
+;; @param new-fee-rate New rate in basis points
 (define-public (set-fee-rate (new-rate uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
