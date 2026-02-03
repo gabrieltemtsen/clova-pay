@@ -69,6 +69,7 @@
 (define-constant STATUS_PENDING u0)
 ;; Admin has started fiat settlement via Paycrest
 (define-constant STATUS_PROCESSING u1)
+;; Fiat payment completed, order finalized
 (define-constant STATUS_CONFIRMED u2)
 (define-constant STATUS_CANCELLED u3)
 (define-constant STATUS_REFUNDED u4)
