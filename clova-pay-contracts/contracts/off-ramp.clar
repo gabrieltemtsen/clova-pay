@@ -86,6 +86,7 @@
 (define-data-var fee-rate uint u100) ;; 1% default
 ;; @notice Address that receives collected fees
 (define-data-var treasury principal CONTRACT_OWNER)
+;; @notice Auto-incrementing order ID counter
 (define-data-var order-nonce uint u0)
 (define-data-var total-fees-collected uint u0)
 (define-data-var paused bool false)
