@@ -437,4 +437,58 @@ describe("ClovaPay Off-Ramp Contract", () => {
       expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
     });
   });
+
+  describe("Security: Order Limits", () => {
+    it("should reject orders below minimum amount", () => {
+      const bankHash = createBankHash("min-test");
+
+      // Try to create order with 0.5 STX (below 1 STX minimum)
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(500000), // 0.5 STX
+          Cl.uint(2500),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(108)); // ERR_AMOUNT_TOO_LOW
+    });
+
+    it("should allow admin to set min order amount", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-min-order-amount",
+        [Cl.uint(500000)], // Set to 0.5 STX
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should allow admin to set max order amount", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-max-order-amount",
+        [Cl.uint(50000000000)], // 50K STX
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should reject non-admin from setting limits", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-min-order-amount",
+        [Cl.uint(100000)],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+    });
+  });
 });
