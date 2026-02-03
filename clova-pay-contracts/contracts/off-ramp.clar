@@ -84,6 +84,7 @@
 (define-data-var admin principal CONTRACT_OWNER)
 ;; @notice Fee rate in basis points (100 = 1%)
 (define-data-var fee-rate uint u100) ;; 1% default
+;; @notice Address that receives collected fees
 (define-data-var treasury principal CONTRACT_OWNER)
 (define-data-var order-nonce uint u0)
 (define-data-var total-fees-collected uint u0)
