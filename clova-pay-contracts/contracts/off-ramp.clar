@@ -465,6 +465,9 @@
 )
 
 ;; Cancel a pending order (user only)
+;; @notice Cancel a pending order (user only)
+;; @param order-id Order to cancel
+;; @return (response bool uint)
 (define-public (cancel-order (order-id uint))
   (let
     (
