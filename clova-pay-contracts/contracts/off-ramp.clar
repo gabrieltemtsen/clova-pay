@@ -716,6 +716,8 @@
   )
 )
 
+;; @notice Set maximum order amount (admin only)
+;; @param new-max New maximum in uSTX
 (define-public (set-max-order-amount (new-max uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
