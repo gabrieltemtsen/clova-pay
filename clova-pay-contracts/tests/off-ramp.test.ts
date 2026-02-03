@@ -603,6 +603,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Token Support ---
   describe("Token Support", () => {
     it("should allow admin to enable a token", () => {
       const block = simnet.callPublicFn(
