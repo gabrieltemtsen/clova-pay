@@ -318,6 +318,8 @@
   (var-get total-escrowed)
 )
 
+;; @notice Check if contract is paused
+;; @return bool True if paused
 (define-read-only (get-paused)
   (var-get paused)
 )
