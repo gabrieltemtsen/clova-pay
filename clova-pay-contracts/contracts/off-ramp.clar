@@ -273,6 +273,8 @@
   (map-get? orders { order-id: order-id })
 )
 
+;; @notice Get all order IDs for a user
+;; @param user Principal to look up
 (define-read-only (get-user-orders (user principal))
   (default-to { order-ids: (list) } (map-get? user-orders { user: user }))
 )
