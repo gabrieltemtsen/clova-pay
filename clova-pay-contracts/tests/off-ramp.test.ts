@@ -1,3 +1,9 @@
+/**
+ * @file off-ramp.test.ts
+ * @description Comprehensive test suite for ClovaPay Off-Ramp Contract
+ * @author ClovaPay Team
+ * @version 1.0.0
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import { Cl, ClarityType } from "@stacks/transactions";
 import { initSimnet } from "@hirosystems/clarinet-sdk";
@@ -11,7 +17,11 @@ const wallet2 = accounts.get("wallet_2")!;
 // Track order nonce for dynamic ID checking
 let currentOrderNonce = 0;
 
-// Helper to create a 32-byte buffer for bank details hash
+/**
+ * Creates a 32-byte buffer for bank details hash
+ * @param data - String to encode
+ * @returns Uint8Array of 32 bytes
+ */
 const createBankHash = (data: string) => {
   const hash = new Uint8Array(32);
   const encoder = new TextEncoder();
@@ -20,7 +30,11 @@ const createBankHash = (data: string) => {
   return hash;
 };
 
-// Helper to create a 64-byte buffer for paycrest ref
+/**
+ * Creates a 64-byte buffer for Paycrest reference
+ * @param ref - Reference string to encode
+ * @returns Uint8Array of 64 bytes
+ */
 const createPaycrestRef = (ref: string) => {
   const buffer = new Uint8Array(64);
   const encoder = new TextEncoder();
@@ -29,6 +43,9 @@ const createPaycrestRef = (ref: string) => {
   return buffer;
 };
 
+// ============================================
+// Main Test Suite
+// ============================================
 describe("ClovaPay Off-Ramp Contract", () => {
   // Disable cooldown for tests at the start of the test suite
   beforeEach(() => {
@@ -38,6 +55,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     simnet.callPublicFn("off-ramp", "set-paused", [Cl.bool(false)], deployer);
   });
 
+  // --- Read-Only Functions ---
   describe("Read-only functions", () => {
     it("should return initial fee rate of 1%", () => {
       const result = simnet.callReadOnlyFn(
@@ -131,6 +149,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Order Creation ---
   describe("Order Creation", () => {
     it("should create an order successfully", () => {
       const amount = 10000000; // 10 STX
@@ -224,6 +243,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Order Cancellation ---
   describe("Order Cancellation", () => {
     it("should allow user to cancel their pending order", () => {
       const bankHash = createBankHash("cancel-test");
@@ -280,6 +300,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Admin Functions ---
   describe("Admin Functions", () => {
     it("should allow admin to mark order as processing", () => {
       const bankHash = createBankHash("processing-test");
@@ -400,6 +421,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Configuration ---
   describe("Configuration", () => {
     it("should allow admin to update fee rate", () => {
       const block = simnet.callPublicFn(
@@ -479,6 +501,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Security: Order Limits ---
   describe("Security: Order Limits", () => {
     it("should reject orders below minimum amount", () => {
       const bankHash = createBankHash("min-test");
@@ -533,6 +556,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Security: Cooldown & Daily Limits ---
   describe("Security: Cooldown & Daily Limits", () => {
     it("should allow admin to set cooldown", () => {
       const block = simnet.callPublicFn(
@@ -579,6 +603,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Token Support ---
   describe("Token Support", () => {
     it("should allow admin to enable a token", () => {
       const block = simnet.callPublicFn(
@@ -648,6 +673,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Edge Cases ---
   describe("Edge Cases", () => {
     it("should return none for non-existent order", () => {
       const result = simnet.callReadOnlyFn(
@@ -699,6 +725,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
   });
 
+  // --- Accounting & Escrow ---
   describe("Accounting & Escrow", () => {
     it("should track escrowed amount", () => {
       const bankHash = createBankHash("escrow-track-test");

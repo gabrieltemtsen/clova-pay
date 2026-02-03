@@ -1,50 +1,100 @@
-;; ClovaPay Off-Ramp Contract
-;; Escrow contract for crypto-to-fiat conversions via Paycrest bridge
-;; Supports both STX and SIP-010 tokens
+;; ============================================
+;; ClovaPay Off-Ramp Contract v1.0.0
+;; ============================================
+;; 
+;; @title Off-Ramp Escrow Contract
+;; @author ClovaPay Team
+;; @notice Escrow contract for crypto-to-fiat conversions via Paycrest bridge
+;; @dev Supports both STX and SIP-010 tokens for deposits
+;; @version 1.0.0
+;; @license MIT
+;;
+;; Features:
+;; - STX and SIP-010 token deposits
+;; - Escrow management with status tracking
+;; - Rate limiting and security controls
+;; - Multi-currency fiat support (NGN, KES, GHS)
+;; - Admin controls for configuration
+;;
+;; ============================================
 
-;; Import SIP-010 trait
+;; Import SIP-010 trait for fungible token support
 (use-trait sip010-trait .sip010-trait.sip010-trait)
 
 ;; ============================================
 ;; Constants
 ;; ============================================
 
+;; Contract deployer set as initial owner
 (define-constant CONTRACT_OWNER tx-sender)
+
+;; ----------------------------------------
+;; Error Codes (u100-u199 range)
+;; ----------------------------------------
+;; u100: Caller is not authorized to perform this action
 (define-constant ERR_NOT_AUTHORIZED (err u100))
+;; u101: Amount is invalid (zero or negative)
 (define-constant ERR_INVALID_AMOUNT (err u101))
+;; u102: Order with given ID does not exist
 (define-constant ERR_ORDER_NOT_FOUND (err u102))
+;; u103: Order is not in pending status
 (define-constant ERR_ORDER_NOT_PENDING (err u103))
+;; u104: User does not have enough balance
 (define-constant ERR_INSUFFICIENT_BALANCE (err u104))
+;; u105: Order has already been confirmed
 (define-constant ERR_ALREADY_CONFIRMED (err u105))
+;; u106: STX or token transfer failed
 (define-constant ERR_TRANSFER_FAILED (err u106))
+;; u107: Token is not in the whitelist
 (define-constant ERR_TOKEN_NOT_SUPPORTED (err u107))
+;; u108: Amount is below minimum order limit
 (define-constant ERR_AMOUNT_TOO_LOW (err u108))
+;; u109: Amount exceeds maximum order limit
 (define-constant ERR_AMOUNT_TOO_HIGH (err u109))
+;; u110: User must wait before creating another order
 (define-constant ERR_COOLDOWN_ACTIVE (err u110))
+;; u111: User has exceeded their daily volume limit
 (define-constant ERR_DAILY_LIMIT_EXCEEDED (err u111))
 
 ;; Fee rate in basis points (100 = 1%)
 (define-constant FEE_DENOMINATOR u10000)
 
-;; Order status constants
+;; ----------------------------------------
+;; Order Status Constants
+;; ----------------------------------------
+;; Status flow: PENDING -> PROCESSING -> CONFIRMED
+;;              PENDING -> CANCELLED (user cancels)
+;;              PENDING|PROCESSING -> REFUNDED (admin refunds)
+;; Order created, awaiting admin processing
 (define-constant STATUS_PENDING u0)
+;; Admin has started fiat settlement via Paycrest
 (define-constant STATUS_PROCESSING u1)
+;; Fiat payment completed, order finalized
 (define-constant STATUS_CONFIRMED u2)
+;; User cancelled before processing
 (define-constant STATUS_CANCELLED u3)
+;; Admin refunded due to settlement failure
 (define-constant STATUS_REFUNDED u4)
 
 ;; ============================================
 ;; Data Variables
 ;; ============================================
 
+;; @notice Current admin who can manage orders
 (define-data-var admin principal CONTRACT_OWNER)
+;; @notice Fee rate in basis points (100 = 1%)
 (define-data-var fee-rate uint u100) ;; 1% default
+;; @notice Address that receives collected fees
 (define-data-var treasury principal CONTRACT_OWNER)
+;; @notice Auto-incrementing order ID counter
 (define-data-var order-nonce uint u0)
+;; @notice Running total of fees collected
 (define-data-var total-fees-collected uint u0)
+;; @notice Emergency pause flag to halt operations
 (define-data-var paused bool false)
 
 ;; Track total escrowed STX for accounting
+;; @notice Total STX currently held in escrow
 (define-data-var total-escrowed uint u0)
 
 ;; ============================================
@@ -52,19 +102,25 @@
 ;; ============================================
 
 ;; Min/Max order amounts in micro-STX (1 STX = 1,000,000 micro-STX)
+;; @notice Minimum order amount (1 STX default)
 (define-data-var min-order-amount uint u1000000)     ;; 1 STX minimum
+;; @notice Maximum order amount (100K STX default)
 (define-data-var max-order-amount uint u100000000000) ;; 100,000 STX maximum
 
 ;; Cooldown between orders in blocks (~10 min = ~60 blocks)
+;; @notice Blocks to wait between orders (6 blocks ~ 1 hour)
 (define-data-var order-cooldown-blocks uint u6)      ;; ~1 minute cooldown
 
 ;; Daily limit per user in micro-STX (resets every 144 blocks ~24hrs)
+;; @notice Daily transaction limit per user (10K STX)
 (define-data-var daily-limit-per-user uint u10000000000) ;; 10,000 STX per day
 
 ;; ============================================
 ;; Data Maps
 ;; ============================================
 
+;; @notice Main orders storage map
+;; @dev Stores all order details by order ID
 (define-map orders
   { order-id: uint }
   {
@@ -81,18 +137,21 @@
   }
 )
 
+;; @notice Tracks order IDs per user (max 50)
 (define-map user-orders
   { user: principal }
   { order-ids: (list 50 uint) }
 )
 
 ;; Supported SIP-010 tokens map
+;; @notice Whitelist of supported SIP-010 tokens
 (define-map supported-tokens
   { token: principal }
   { enabled: bool, name: (string-ascii 32) }
 )
 
 ;; Token orders map (tracks token type per order)
+;; @notice Maps order ID to token used for deposit
 (define-map token-orders
   { order-id: uint }
   { token: principal }
@@ -105,6 +164,8 @@
 )
 
 ;; User rate limiting map (tracks cooldowns and daily volume)
+;; @notice Rate limiting data per user
+;; @dev Tracks cooldowns and daily volume
 (define-map user-rate-limits
   { user: principal }
   { 
@@ -119,6 +180,9 @@
 ;; ============================================
 
 ;; Transfer STX from contract to a recipient
+;; @notice Transfer STX from contract to recipient
+;; @param amount Amount to transfer
+;; @param recipient Address to receive funds
 (define-private (transfer-from-escrow (amount uint) (recipient principal))
   (as-contract (stx-transfer? amount tx-sender recipient))
 )
@@ -132,16 +196,22 @@
 ;; 3. Reducing duplicate status comparisons
 
 ;; Check if caller is admin (caches var-get)
+;; @notice Check if caller is admin
+;; @return bool True if tx-sender is admin
 (define-private (is-admin)
   (is-eq tx-sender (var-get admin))
 )
 
 ;; Check if order status allows cancellation/refund
+;; @notice Check if order can be cancelled
+;; @param order-data Order tuple to check
 (define-private (is-order-cancellable (status uint))
   (or (is-eq status STATUS_PENDING) (is-eq status STATUS_PROCESSING))
 )
 
 ;; Validate order exists and is in valid state for confirmation
+;; @notice Check if order can be confirmed
+;; @param order-data Order tuple to check
 (define-private (is-order-confirmable (status uint))
   (or (is-eq status STATUS_PENDING) (is-eq status STATUS_PROCESSING))
 )
@@ -151,6 +221,8 @@
 ;; ============================================
 
 ;; Check if user is within cooldown period
+;; @notice Verify user cooldown has elapsed
+;; @param user Principal to check
 (define-private (check-cooldown (user principal))
   (match (map-get? user-rate-limits { user: user })
     limits (>= block-height (+ (get last-order-block limits) (var-get order-cooldown-blocks)))
@@ -159,6 +231,9 @@
 )
 
 ;; Check and update daily volume (returns new volume if OK, none if exceeded)
+;; @notice Check and update daily volume tracking
+;; @param user Principal to check
+;; @param amount Order amount to add
 (define-private (check-and-update-daily-limit (user principal) (amount uint))
   (let
     (
@@ -197,46 +272,73 @@
 ;; Read-Only Functions
 ;; ============================================
 
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
 (define-read-only (get-order (order-id uint))
   (map-get? orders { order-id: order-id })
 )
 
+;; @notice Get all order IDs for a user
+;; @param user Principal to look up
 (define-read-only (get-user-orders (user principal))
   (default-to { order-ids: (list) } (map-get? user-orders { user: user }))
 )
 
+;; @notice Get current fee rate in basis points
+;; @return uint Fee rate (100 = 1%)
 (define-read-only (get-fee-rate)
   (var-get fee-rate)
 )
 
+;; @notice Get current admin address
+;; @return principal Current admin
 (define-read-only (get-admin)
   (var-get admin)
 )
 
+;; @notice Get treasury address for fees
+;; @return principal Treasury address
 (define-read-only (get-treasury)
   (var-get treasury)
 )
 
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
+;; @notice Get current order count
+;; @return uint Total orders created
 (define-read-only (get-order-nonce)
   (var-get order-nonce)
 )
 
+;; @notice Get total fees collected
+;; @return uint Total fees in uSTX
 (define-read-only (get-total-fees)
   (var-get total-fees-collected)
 )
 
+;; @notice Get total amount in escrow
+;; @return uint Total escrowed uSTX
 (define-read-only (get-total-escrowed)
   (var-get total-escrowed)
 )
 
+;; @notice Check if contract is paused
+;; @return bool True if paused
 (define-read-only (get-paused)
   (var-get paused)
 )
 
+;; @notice Calculate fee for given amount
+;; @param amount Amount to calculate fee for
+;; @return uint Fee amount in uSTX
 (define-read-only (calculate-fee (amount uint))
   (/ (* amount (var-get fee-rate)) FEE_DENOMINATOR)
 )
 
+;; @notice Get contract STX balance
+;; @return uint Balance in uSTX
 (define-read-only (get-contract-balance)
   (stx-get-balance (as-contract tx-sender))
 )
@@ -245,22 +347,35 @@
 ;; Security Configuration Getters
 ;; ============================================
 
+;; @notice Get minimum order amount
+;; @return uint Minimum in uSTX
 (define-read-only (get-min-order-amount)
   (var-get min-order-amount)
 )
 
+;; @notice Get maximum order amount
+;; @return uint Maximum in uSTX
 (define-read-only (get-max-order-amount)
   (var-get max-order-amount)
 )
 
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
+;; @notice Get order cooldown in blocks
+;; @return uint Cooldown blocks
 (define-read-only (get-order-cooldown)
   (var-get order-cooldown-blocks)
 )
 
+;; @notice Get daily limit per user
+;; @return uint Daily limit in uSTX
 (define-read-only (get-daily-limit)
   (var-get daily-limit-per-user)
 )
 
+;; @notice Get user rate limit data
+;; @param user Principal to look up
 (define-read-only (get-user-rate-limits (user principal))
   (map-get? user-rate-limits { user: user })
 )
@@ -271,6 +386,12 @@
 
 ;; Create a new off-ramp order
 ;; Locks STX in escrow until confirmed or cancelled
+;; @notice Create a new off-ramp order
+;; @param amount STX amount to deposit
+;; @param fiat-amount Expected fiat amount
+;; @param fiat-currency Target currency (NGN/KES/GHS)
+;; @param bank-details-hash Encrypted bank details
+;; @return (response uint uint) Order ID or error
 (define-public (create-order 
     (amount uint) 
     (fiat-amount uint)
@@ -350,6 +471,9 @@
 )
 
 ;; Cancel a pending order (user only)
+;; @notice Cancel a pending order (user only)
+;; @param order-id Order to cancel
+;; @return (response bool uint)
 (define-public (cancel-order (order-id uint))
   (let
     (
@@ -393,6 +517,8 @@
 
 ;; Mark order as processing (backend picked it up)
 ;; OPTIMIZED: Using is-admin helper reduces var-get calls
+;; @notice Mark order as processing (admin only)
+;; @param order-id Order to mark
 (define-public (mark-processing (order-id uint))
   (let
     ((order (unwrap! (get-order order-id) ERR_ORDER_NOT_FOUND)))
@@ -416,6 +542,9 @@
 
 ;; Confirm order after Paycrest settlement
 ;; OPTIMIZED: Using is-admin and is-order-confirmable helpers
+;; @notice Confirm order completion (admin only)
+;; @param order-id Order to confirm
+;; @param paycrest-ref Paycrest transaction reference
 (define-public (confirm-order (order-id uint) (paycrest-ref (buff 64)))
   (let
     (
@@ -466,6 +595,9 @@
 
 ;; Force refund (admin only - for failed Paycrest orders)
 ;; OPTIMIZED: Using is-admin and is-order-cancellable helpers
+;; @notice Force refund an order (admin only)
+;; @param order-id Order to refund
+;; @param reason Refund reason string
 (define-public (force-refund (order-id uint) (reason (string-utf8 100)))
   (let
     (
@@ -503,6 +635,8 @@
 
 ;; Withdraw collected fees
 ;; OPTIMIZED: Using is-admin helper
+;; @notice Withdraw collected fees (admin only)
+;; @param amount Amount to withdraw
 (define-public (withdraw-fees (amount uint))
   (let
     ((current-treasury (var-get treasury)))
@@ -527,6 +661,8 @@
 ;; Admin Configuration
 ;; ============================================
 
+;; @notice Transfer admin role (admin only)
+;; @param new-admin New admin address
 (define-public (set-admin (new-admin principal))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -536,6 +672,8 @@
   )
 )
 
+;; @notice Update treasury address (admin only)
+;; @param new-treasury New treasury address
 (define-public (set-treasury (new-treasury principal))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -545,6 +683,8 @@
   )
 )
 
+;; @notice Update fee rate (admin only, max 5%)
+;; @param new-fee-rate New rate in basis points
 (define-public (set-fee-rate (new-rate uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -555,6 +695,8 @@
   )
 )
 
+;; @notice Toggle emergency pause (admin only)
+;; @param is-paused New pause state
 (define-public (set-paused (new-paused bool))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -568,6 +710,8 @@
 ;; Security Configuration (Admin Only)
 ;; ============================================
 
+;; @notice Set minimum order amount (admin only)
+;; @param new-min New minimum in uSTX
 (define-public (set-min-order-amount (new-min uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -578,6 +722,8 @@
   )
 )
 
+;; @notice Set maximum order amount (admin only)
+;; @param new-max New maximum in uSTX
 (define-public (set-max-order-amount (new-max uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -588,6 +734,8 @@
   )
 )
 
+;; @notice Set cooldown between orders (admin only)
+;; @param new-cooldown Blocks to wait
 (define-public (set-order-cooldown (new-cooldown uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -597,6 +745,8 @@
   )
 )
 
+;; @notice Set daily limit per user (admin only)
+;; @param new-limit New limit in uSTX
 (define-public (set-daily-limit (new-limit uint))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -613,6 +763,10 @@
 
 ;; Admin: Enable or disable a SIP-010 token for deposits
 ;; OPTIMIZED: Using is-admin helper
+;; @notice Enable or disable a token (admin only)
+;; @param token Token contract principal
+;; @param enabled Whether to enable
+;; @param name Token display name
 (define-public (set-token-enabled (token principal) (enabled bool) (name (string-ascii 32)))
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
@@ -626,6 +780,9 @@
 )
 
 ;; Check if a token is supported
+;; @notice Check if token is whitelisted
+;; @param token Token to check
+;; @return bool True if supported
 (define-read-only (is-token-supported (token principal))
   (match (map-get? supported-tokens { token: token })
     token-data (get enabled token-data)
@@ -673,16 +830,27 @@
 )
 
 ;; Get token info
+;; @notice Get token configuration
+;; @param token Token contract
 (define-read-only (get-token-info (token principal))
   (map-get? supported-tokens { token: token })
 )
 
 ;; Get the token used for a specific order (none = STX order)
+;; @notice Get order details by ID
+;; @param order-id Order ID to look up
+;; @return Optional order tuple
 (define-read-only (get-order-token (order-id uint))
   (map-get? token-orders { order-id: order-id })
 )
 
 ;; Create an order using a SIP-010 token instead of STX
+;; @notice Create a new off-ramp order
+;; @param amount STX amount to deposit
+;; @param fiat-amount Expected fiat amount
+;; @param fiat-currency Target currency (NGN/KES/GHS)
+;; @param bank-details-hash Encrypted bank details
+;; @return (response uint uint) Order ID or error
 (define-public (create-order-token
     (token <sip010-trait>)
     (amount uint)
