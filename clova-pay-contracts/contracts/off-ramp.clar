@@ -67,6 +67,7 @@
 ;;              PENDING|PROCESSING -> REFUNDED (admin refunds)
 ;; Order created, awaiting admin processing
 (define-constant STATUS_PENDING u0)
+;; Admin has started fiat settlement via Paycrest
 (define-constant STATUS_PROCESSING u1)
 (define-constant STATUS_CONFIRMED u2)
 (define-constant STATUS_CANCELLED u3)
