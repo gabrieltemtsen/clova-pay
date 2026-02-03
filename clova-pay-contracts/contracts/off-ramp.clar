@@ -324,6 +324,9 @@
   (var-get paused)
 )
 
+;; @notice Calculate fee for given amount
+;; @param amount Amount to calculate fee for
+;; @return uint Fee amount in uSTX
 (define-read-only (calculate-fee (amount uint))
   (/ (* amount (var-get fee-rate)) FEE_DENOMINATOR)
 )
