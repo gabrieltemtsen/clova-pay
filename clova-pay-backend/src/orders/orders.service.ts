@@ -1,5 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    Injectable,
+    NotFoundException,
+    ConflictException,
+    InternalServerErrorException,
+    Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import {
     CreateOrderDto,
     UpdateOrderDto,
@@ -9,75 +16,116 @@ import {
 
 @Injectable()
 export class OrdersService {
+    private readonly logger = new Logger(OrdersService.name);
+
     constructor(private prisma: PrismaService) { }
 
     async create(dto: CreateOrderDto) {
-        return this.prisma.order.create({
-            data: {
-                stacksOrderId: dto.stacksOrderId,
-                txId: dto.txId,
-                sender: dto.sender,
-                amount: BigInt(dto.amount),
-                fee: BigInt(dto.fee),
-                fiatAmount: BigInt(dto.fiatAmount),
-                fiatCurrency: dto.fiatCurrency,
-                bankDetailsHash: dto.bankDetailsHash,
-                tokenContract: dto.tokenContract,
-                status: OrderStatus.PENDING,
-            },
-        });
+        try {
+            const order = await this.prisma.order.create({
+                data: {
+                    stacksOrderId: dto.stacksOrderId,
+                    txId: dto.txId,
+                    sender: dto.sender,
+                    amount: BigInt(dto.amount),
+                    fee: BigInt(dto.fee),
+                    fiatAmount: BigInt(dto.fiatAmount),
+                    fiatCurrency: dto.fiatCurrency,
+                    bankDetailsHash: dto.bankDetailsHash,
+                    tokenContract: dto.tokenContract,
+                    status: OrderStatus.PENDING,
+                },
+            });
+
+            this.logger.log(`Created order: ${order.id} (Stacks ID: ${dto.stacksOrderId})`);
+            return order;
+        } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError) {
+                if (error.code === 'P2002') {
+                    throw new ConflictException(`Order with Stacks ID ${dto.stacksOrderId} already exists`);
+                }
+            }
+            this.logger.error(`Failed to create order: ${error.message}`, error.stack);
+            throw new InternalServerErrorException('Failed to create order');
+        }
     }
 
     async findAll(query: OrderQueryDto) {
-        const { sender, status, limit = 50, offset = 0 } = query;
+        try {
+            const { sender, status, limit = 50, offset = 0 } = query;
 
-        return this.prisma.order.findMany({
-            where: {
-                ...(sender && { sender }),
-                ...(status && { status }),
-            },
-            orderBy: { createdAt: 'desc' },
-            take: limit,
-            skip: offset,
-        });
+            return await this.prisma.order.findMany({
+                where: {
+                    ...(sender && { sender }),
+                    ...(status && { status }),
+                },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip: offset,
+            });
+        } catch (error) {
+            this.logger.error(`Failed to fetch orders: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch orders');
+        }
     }
 
     async findOne(id: string) {
-        const order = await this.prisma.order.findUnique({
-            where: { id },
-        });
+        try {
+            const order = await this.prisma.order.findUnique({
+                where: { id },
+            });
 
-        if (!order) {
-            throw new NotFoundException(`Order ${id} not found`);
+            if (!order) {
+                throw new NotFoundException(`Order ${id} not found`);
+            }
+
+            return order;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            this.logger.error(`Failed to find order ${id}: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch order');
         }
-
-        return order;
     }
 
     async findByStacksId(stacksOrderId: number) {
-        const order = await this.prisma.order.findUnique({
-            where: { stacksOrderId },
-        });
+        try {
+            const order = await this.prisma.order.findUnique({
+                where: { stacksOrderId },
+            });
 
-        if (!order) {
-            throw new NotFoundException(`Order with Stacks ID ${stacksOrderId} not found`);
+            if (!order) {
+                throw new NotFoundException(`Order with Stacks ID ${stacksOrderId} not found`);
+            }
+
+            return order;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            this.logger.error(`Failed to find order by Stacks ID ${stacksOrderId}: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch order');
         }
-
-        return order;
     }
 
     async updateStatus(id: string, dto: UpdateOrderDto) {
-        const order = await this.findOne(id);
+        try {
+            const order = await this.findOne(id); // Checks existence
 
-        return this.prisma.order.update({
-            where: { id },
-            data: {
-                status: dto.status,
-                paycrestOrderId: dto.paycrestOrderId ?? order.paycrestOrderId,
-                paycrestStatus: dto.paycrestStatus ?? order.paycrestStatus,
-                ...(dto.status === OrderStatus.CONFIRMED && { confirmedAt: new Date() }),
-            },
-        });
+            const updated = await this.prisma.order.update({
+                where: { id },
+                data: {
+                    status: dto.status,
+                    paycrestOrderId: dto.paycrestOrderId ?? order.paycrestOrderId,
+                    paycrestStatus: dto.paycrestStatus ?? order.paycrestStatus,
+                    ...(dto.status === OrderStatus.CONFIRMED && { confirmedAt: new Date() }),
+                },
+            });
+
+            this.logger.log(`Updated order ${id} status to ${dto.status}`);
+            return updated;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            this.logger.error(`Failed to update order ${id}: ${error.message}`);
+            throw new InternalServerErrorException('Failed to update order');
+        }
     }
 
     async markProcessing(id: string, paycrestOrderId: string) {
@@ -101,24 +149,38 @@ export class OrdersService {
     }
 
     async markFailed(id: string, reason?: string) {
-        return this.prisma.order.update({
-            where: { id },
-            data: {
-                status: OrderStatus.FAILED,
-                paycrestStatus: reason ?? 'FAILED',
-            },
-        });
+        try {
+            // Note: Directly calling update here to bypass status check if needed, 
+            // but normally updateStatus is safer. For failure, we might want to force it.
+            const updated = await this.prisma.order.update({
+                where: { id },
+                data: {
+                    status: OrderStatus.FAILED,
+                    paycrestStatus: reason ?? 'FAILED',
+                },
+            });
+            this.logger.warn(`Marked order ${id} as FAILED: ${reason}`);
+            return updated;
+        } catch (error) {
+            this.logger.error(`Failed to mark order ${id} as failed: ${error.message}`);
+            throw new InternalServerErrorException('Failed to update order status');
+        }
     }
 
     async getStats() {
-        const [total, pending, processing, confirmed, failed] = await Promise.all([
-            this.prisma.order.count(),
-            this.prisma.order.count({ where: { status: OrderStatus.PENDING } }),
-            this.prisma.order.count({ where: { status: OrderStatus.PROCESSING } }),
-            this.prisma.order.count({ where: { status: OrderStatus.CONFIRMED } }),
-            this.prisma.order.count({ where: { status: OrderStatus.FAILED } }),
-        ]);
+        try {
+            const [total, pending, processing, confirmed, failed] = await Promise.all([
+                this.prisma.order.count(),
+                this.prisma.order.count({ where: { status: OrderStatus.PENDING } }),
+                this.prisma.order.count({ where: { status: OrderStatus.PROCESSING } }),
+                this.prisma.order.count({ where: { status: OrderStatus.CONFIRMED } }),
+                this.prisma.order.count({ where: { status: OrderStatus.FAILED } }),
+            ]);
 
-        return { total, pending, processing, confirmed, failed };
+            return { total, pending, processing, confirmed, failed };
+        } catch (error) {
+            this.logger.error(`Failed to get stats: ${error.message}`);
+            throw new InternalServerErrorException('Failed to get statistics');
+        }
     }
 }
