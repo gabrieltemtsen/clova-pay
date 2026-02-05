@@ -3,14 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import { CreateOrderForm } from "@/components/CreateOrderForm";
 import { useWallet } from "@/context/WalletContext";
-import { SUPPORTED_CURRENCIES, truncateAddress } from "@/lib/stacks";
+import { truncateAddress } from "@/lib/stacks";
 import {
     Wallet,
     ArrowDownRight,
-    History,
-    AlertCircle,
-    Building2
+    History
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -73,78 +72,7 @@ export default function Dashboard() {
                                     Convert STX to Fiat
                                 </h2>
 
-                                <form className="space-y-6">
-                                    {/* Amount */}
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-2">
-                                            Amount (STX)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="Enter amount"
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors"
-                                        />
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            Balance: 0.00 STX • Fee: 1%
-                                        </p>
-                                    </div>
-
-                                    {/* Currency */}
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-2">
-                                            Receive Currency
-                                        </label>
-                                        <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-orange-500 transition-colors">
-                                            {SUPPORTED_CURRENCIES.map((currency) => (
-                                                <option key={currency.code} value={currency.code} className="bg-black">
-                                                    {currency.flag} {currency.code} - {currency.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Bank Details */}
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm text-gray-400 flex items-center gap-2">
-                                            <Building2 className="w-4 h-4" />
-                                            Bank Details
-                                        </h3>
-
-                                        <input
-                                            type="text"
-                                            placeholder="Bank Name"
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors"
-                                        />
-
-                                        <input
-                                            type="text"
-                                            placeholder="Account Number"
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors"
-                                        />
-
-                                        <input
-                                            type="text"
-                                            placeholder="Account Name"
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors"
-                                        />
-                                    </div>
-
-                                    {/* Info */}
-                                    <div className="flex items-start gap-3 p-4 bg-orange-500/10 rounded-xl border border-orange-500/20">
-                                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                                        <div className="text-sm text-gray-300">
-                                            <p className="font-medium text-orange-400 mb-1">How it works</p>
-                                            <p>Your STX will be locked in escrow. Once we confirm the fiat has been sent to your bank, the order is completed.</p>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        className="w-full btn-primary py-4 rounded-xl text-white font-semibold"
-                                    >
-                                        Create Order
-                                    </button>
-                                </form>
+                                <CreateOrderForm />
                             </div>
                         </div>
 
