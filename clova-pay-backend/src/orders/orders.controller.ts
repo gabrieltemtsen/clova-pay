@@ -7,10 +7,12 @@ import {
     Body,
     HttpCode,
     HttpStatus,
+    UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { OrderQueryDto, UpdateOrderDto, CreateOrderDto } from './dto/order.dto';
+import { ApiKeyGuard } from '../common/guards/api-key.guard';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -82,9 +84,11 @@ export class OrdersController {
     }
 
     @Post(':id/process')
+    @UseGuards(ApiKeyGuard)
     @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Trigger Paycrest settlement process' })
+    @ApiOperation({ summary: 'Trigger Paycrest settlement process (Admin only)' })
     @ApiResponse({ status: 200, description: 'Order queued for settlement.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
     async processOrder(@Param('id') id: string) {
         // This will be called to trigger Paycrest settlement
         // For now, just mark as processing
