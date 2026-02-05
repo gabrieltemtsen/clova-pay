@@ -4,12 +4,12 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import { CreateOrderForm } from "@/components/CreateOrderForm";
+import { OrderHistory } from "@/components/OrderHistory";
 import { useWallet } from "@/context/WalletContext";
 import { truncateAddress } from "@/lib/stacks";
 import {
     Wallet,
-    ArrowDownRight,
-    History
+    ArrowDownRight
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -86,18 +86,7 @@ export default function Dashboard() {
                             </div>
 
                             {/* Recent Orders */}
-                            <div className="glass rounded-2xl p-6">
-                                <h3 className="text-sm text-gray-400 mb-4 flex items-center gap-2">
-                                    <History className="w-4 h-4" />
-                                    Recent Orders
-                                </h3>
-                                <div className="text-center py-8">
-                                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
-                                        <History className="w-6 h-6 text-gray-600" />
-                                    </div>
-                                    <p className="text-gray-500 text-sm">No orders yet</p>
-                                </div>
-                            </div>
+                            <OrderHistory />
 
                             {/* Rate Info */}
                             <div className="glass rounded-2xl p-6">
