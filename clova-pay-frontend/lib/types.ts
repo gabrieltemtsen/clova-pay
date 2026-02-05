@@ -1,18 +1,24 @@
-export type OrderStatus =
-    | "PENDING"
-    | "PROCESSING"
-    | "CONFIRMED"
-    | "CANCELLED"
-    | "REFUNDED";
+export enum OrderStatus {
+    PENDING = "PENDING",
+    PROCESSING = "PROCESSING",
+    SETTLED = "SETTLED",
+    CONFIRMED = "CONFIRMED",
+    CANCELLED = "CANCELLED",
+    REFUNDED = "REFUNDED",
+    FAILED = "FAILED"
+}
 
+export type SupportedCurrency = 'NGN' | 'KES' | 'GHS' | 'UGX' | 'TZS';
+
+// Backend compatible Order interface
 export interface Order {
     id: string;
-    amount: number; // in STX
-    fiatAmount: number; // in minor units (e.g. cents/kobo)
-    currency: string;
+    stacksOrderId: number;
+    sender: string;
+    amount: string;     // BigInt as string
+    fee: string;
+    fiatAmount: string; // BigInt as string (minor units)
+    fiatCurrency: string;
     status: OrderStatus;
-    timestamp: number;
-    txId?: string;
-    bankName: string;
-    accountNumber: string;
+    createdAt: string;
 }

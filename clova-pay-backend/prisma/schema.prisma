@@ -21,7 +21,7 @@ model Order {
   fiatAmount      BigInt                // Amount in fiat (smallest unit, e.g., kobo)
   fiatCurrency    String                // Currency code (NGN, KES, etc.)
   bankDetailsHash String                // Hash of bank details
-  status          String      @default("PENDING")
+  status          String      @default("PENDING") // Uses enum in App code, kept as String for SQLite compatibility
   paycrestOrderId String?               // Paycrest order reference
   paycrestStatus  String?               // Paycrest settlement status
   tokenContract   String?               // SIP-010 token address (null = STX)
@@ -32,6 +32,7 @@ model Order {
   @@index([sender])
   @@index([status])
   @@index([createdAt])
+  @@index([stacksOrderId])
 }
 
 // Webhook events log for debugging
@@ -41,5 +42,11 @@ model WebhookEvent {
   eventType   String
   payload     String   // JSON payload
   processed   Boolean  @default(false)
+  error       String?  // Error message if processing failed
+  retryCount  Int      @default(0)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([source, eventType])
+  @@index([processed])
 }

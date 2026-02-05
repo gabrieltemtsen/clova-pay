@@ -7,15 +7,21 @@ import {
     Body,
     HttpCode,
     HttpStatus,
+    UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
-import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order.dto';
+import { OrderQueryDto, UpdateOrderDto, CreateOrderDto } from './dto/order.dto';
+import { ApiKeyGuard } from '../common/guards/api-key.guard';
 
+@ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
     constructor(private readonly ordersService: OrdersService) { }
 
     @Get()
+    @ApiOperation({ summary: 'List all orders' })
+    @ApiResponse({ status: 200, description: 'Return a list of orders.' })
     async findAll(@Query() query: OrderQueryDto) {
         const orders = await this.ordersService.findAll(query);
         // Convert BigInt to string for JSON serialization
@@ -28,11 +34,15 @@ export class OrdersController {
     }
 
     @Get('stats')
+    @ApiOperation({ summary: 'Get order statistics' })
+    @ApiResponse({ status: 200, description: 'Return order statistics.' })
     async getStats() {
         return this.ordersService.getStats();
     }
 
     @Get(':id')
+    @ApiOperation({ summary: 'Get a specific order by ID' })
+    @ApiResponse({ status: 200, description: 'Return the order.' })
     async findOne(@Param('id') id: string) {
         const order = await this.ordersService.findOne(id);
         return {
@@ -44,6 +54,8 @@ export class OrdersController {
     }
 
     @Get('stacks/:stacksOrderId')
+    @ApiOperation({ summary: 'Get a specific order by Stacks Order ID' })
+    @ApiResponse({ status: 200, description: 'Return the order.' })
     async findByStacksId(@Param('stacksOrderId') stacksOrderId: string) {
         const order = await this.ordersService.findByStacksId(parseInt(stacksOrderId, 10));
         return {
@@ -56,9 +68,11 @@ export class OrdersController {
 
     @Post(':id/status')
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Update order status' })
+    @ApiResponse({ status: 200, description: 'Return the updated order.' })
     async updateStatus(
         @Param('id') id: string,
-        @Body() dto: UpdateOrderStatusDto,
+        @Body() dto: UpdateOrderDto,
     ) {
         const order = await this.ordersService.updateStatus(id, dto);
         return {
@@ -70,7 +84,11 @@ export class OrdersController {
     }
 
     @Post(':id/process')
+    @UseGuards(ApiKeyGuard)
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Trigger Paycrest settlement process (Admin only)' })
+    @ApiResponse({ status: 200, description: 'Order queued for settlement.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
     async processOrder(@Param('id') id: string) {
         // This will be called to trigger Paycrest settlement
         // For now, just mark as processing

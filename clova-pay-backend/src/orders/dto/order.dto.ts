@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsInt, Min, IsNotEmpty, Length } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum OrderStatus {
     PENDING = 'PENDING',
@@ -11,62 +12,86 @@ export enum OrderStatus {
 }
 
 export class CreateOrderDto {
+    @ApiProperty({ description: 'The Order ID from Stacks smart contract', example: 1001 })
     @IsNumber()
+    @IsInt()
+    @Min(1)
     stacksOrderId: number;
 
+    @ApiPropertyOptional({ description: 'The transaction ID on Stacks chain', example: '0x123...' })
     @IsString()
     @IsOptional()
     txId?: string;
 
+    @ApiProperty({ description: 'The Stacks address of the sender', example: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM' })
     @IsString()
+    @IsNotEmpty()
     sender: string;
 
+    @ApiProperty({ description: 'The amount in micro-STX (uSTX)', example: 100000000 })
     @IsNumber()
+    @Min(0)
     amount: number;
 
+    @ApiProperty({ description: 'The fee in micro-STX (uSTX)', example: 1000000 })
     @IsNumber()
+    @Min(0)
     fee: number;
 
+    @ApiProperty({ description: 'The fiat amount in minor units (e.g., kobo, cents)', example: 15000000 })
     @IsNumber()
+    @Min(0)
     fiatAmount: number;
 
+    @ApiProperty({ description: 'The 3-letter currency code', example: 'NGN', minLength: 3, maxLength: 3 })
     @IsString()
+    @Length(3, 3)
     fiatCurrency: string;
 
+    @ApiProperty({ description: 'Hash of the bank details', example: '0xabc123...' })
     @IsString()
+    @IsNotEmpty()
     bankDetailsHash: string;
 
+    @ApiPropertyOptional({ description: 'SIP-010 token contract address (if token order)', example: 'ST1PQ...token' })
     @IsString()
     @IsOptional()
     tokenContract?: string;
 }
 
-export class UpdateOrderStatusDto {
+export class UpdateOrderDto {
+    @ApiProperty({ enum: OrderStatus, description: 'The new status of the order' })
     @IsEnum(OrderStatus)
     status: OrderStatus;
 
+    @ApiPropertyOptional({ description: 'Paycrest Order ID' })
     @IsString()
     @IsOptional()
     paycrestOrderId?: string;
 
+    @ApiPropertyOptional({ description: 'Paycrest Order Status' })
     @IsString()
     @IsOptional()
     paycrestStatus?: string;
 }
 
 export class OrderQueryDto {
+    @ApiPropertyOptional({ description: 'Filter by sender address' })
     @IsString()
     @IsOptional()
     sender?: string;
 
+    @ApiPropertyOptional({ enum: OrderStatus, description: 'Filter by order status' })
     @IsEnum(OrderStatus)
     @IsOptional()
     status?: OrderStatus;
 
+    @ApiPropertyOptional({ description: 'Number of items to return', default: 50 })
     @IsNumber()
     @IsOptional()
     limit?: number;
 
+    @ApiPropertyOptional({ description: 'Number of items to skip', default: 0 })
     @IsNumber()
     @IsOptional()
     offset?: number;

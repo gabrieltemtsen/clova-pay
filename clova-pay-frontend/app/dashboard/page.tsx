@@ -3,14 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import { CreateOrderForm } from "@/components/CreateOrderForm";
-import { OrderHistory } from "@/components/OrderHistory";
 import { useWallet } from "@/context/WalletContext";
 import { truncateAddress } from "@/lib/stacks";
-import {
-    Wallet,
-    ArrowDownRight
-} from "lucide-react";
+import { Wallet } from "lucide-react";
+import CreateOrderForm from "@/components/CreateOrderForm";
+import OrderHistory from "@/components/OrderHistory";
+import DashboardStats from "@/components/DashboardStats";
 
 export default function Dashboard() {
     const { isConnected, address, connectWallet } = useWallet();
@@ -66,46 +64,13 @@ export default function Dashboard() {
                     <div className="grid lg:grid-cols-3 gap-6">
                         {/* Convert Form */}
                         <div className="lg:col-span-2">
-                            <div className="glass rounded-2xl p-6">
-                                <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                                    <ArrowDownRight className="w-5 h-5 text-orange-500" />
-                                    Convert STX to Fiat
-                                </h2>
-
-                                <CreateOrderForm />
-                            </div>
+                            <CreateOrderForm />
                         </div>
 
                         {/* Sidebar */}
                         <div className="space-y-6">
-                            {/* Wallet Card */}
-                            <div className="glass rounded-2xl p-6">
-                                <h3 className="text-sm text-gray-400 mb-2">Your Wallet</h3>
-                                <div className="text-3xl font-bold text-white mb-1">0.00 STX</div>
-                                <p className="text-sm text-gray-500">≈ $0.00 USD</p>
-                            </div>
-
-                            {/* Recent Orders */}
+                            <DashboardStats />
                             <OrderHistory />
-
-                            {/* Rate Info */}
-                            <div className="glass rounded-2xl p-6">
-                                <h3 className="text-sm text-gray-400 mb-3">Current Rates</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">1 STX</span>
-                                        <span className="text-white">≈ ₦1,500</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">1 STX</span>
-                                        <span className="text-white">≈ KSh 150</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">1 STX</span>
-                                        <span className="text-white">≈ ₵15</span>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
