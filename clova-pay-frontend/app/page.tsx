@@ -10,7 +10,6 @@ import {
   Coins,
   Globe,
   ArrowRight,
-  CheckCircle,
   Wallet
 } from "lucide-react";
 import Link from "next/link";

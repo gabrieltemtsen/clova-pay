@@ -1,16 +1,4 @@
-import { OrderStatus } from "@/lib/types";
-
-export interface Order {
-    id: string;
-    stacksOrderId: number;
-    sender: string;
-    amount: string;
-    fee: string;
-    fiatAmount: string;
-    fiatCurrency: string;
-    status: OrderStatus;
-    createdAt: string;
-}
+import { Order, OrderStatus } from "@/lib/types";
 
 export interface PaycrestRate {
     token: string;
@@ -39,6 +27,8 @@ export async function fetchRate(token: string, fiat: string): Promise<PaycrestRa
         'STX-NGN': '1500',
         'STX-KES': '150',
         'STX-GHS': '15',
+        'STX-UGX': '3800',
+        'STX-TZS': '2600',
     }
     const key = `${token}-${fiat}`;
 

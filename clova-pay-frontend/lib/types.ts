@@ -8,4 +8,17 @@ export enum OrderStatus {
     FAILED = "FAILED"
 }
 
-export type SupportedCurrency = 'NGN' | 'KES' | 'GHS';
+export type SupportedCurrency = 'NGN' | 'KES' | 'GHS' | 'UGX' | 'TZS';
+
+// Backend compatible Order interface
+export interface Order {
+    id: string;
+    stacksOrderId: number;
+    sender: string;
+    amount: string;     // BigInt as string
+    fee: string;
+    fiatAmount: string; // BigInt as string (minor units)
+    fiatCurrency: string;
+    status: OrderStatus;
+    createdAt: string;
+}
