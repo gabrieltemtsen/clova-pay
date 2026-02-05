@@ -9,7 +9,7 @@ import {
     HttpStatus,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
-import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order.dto';
+import { OrderQueryDto, UpdateOrderDto } from './dto/order.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -58,7 +58,7 @@ export class OrdersController {
     @HttpCode(HttpStatus.OK)
     async updateStatus(
         @Param('id') id: string,
-        @Body() dto: UpdateOrderStatusDto,
+        @Body() dto: UpdateOrderDto,
     ) {
         const order = await this.ordersService.updateStatus(id, dto);
         return {

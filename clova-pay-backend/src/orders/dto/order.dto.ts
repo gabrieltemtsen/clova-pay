@@ -49,7 +49,7 @@ export class CreateOrderDto {
     tokenContract?: string;
 }
 
-export class UpdateOrderStatusDto {
+export class UpdateOrderDto {
     @IsEnum(OrderStatus)
     status: OrderStatus;
 

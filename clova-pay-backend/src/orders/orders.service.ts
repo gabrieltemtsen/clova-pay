@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
     CreateOrderDto,
-    UpdateOrderStatusDto,
+    UpdateOrderDto,
     OrderQueryDto,
     OrderStatus,
 } from './dto/order.dto';
@@ -66,7 +66,7 @@ export class OrdersService {
         return order;
     }
 
-    async updateStatus(id: string, dto: UpdateOrderStatusDto) {
+    async updateStatus(id: string, dto: UpdateOrderDto) {
         const order = await this.findOne(id);
 
         return this.prisma.order.update({
