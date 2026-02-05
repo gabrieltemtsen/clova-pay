@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsInt, Min, IsNotEmpty, Length } from 'class-validator';
 
 export enum OrderStatus {
     PENDING = 'PENDING',
@@ -12,6 +12,8 @@ export enum OrderStatus {
 
 export class CreateOrderDto {
     @IsNumber()
+    @IsInt()
+    @Min(1)
     stacksOrderId: number;
 
     @IsString()
@@ -19,21 +21,27 @@ export class CreateOrderDto {
     txId?: string;
 
     @IsString()
+    @IsNotEmpty()
     sender: string;
 
     @IsNumber()
+    @Min(0)
     amount: number;
 
     @IsNumber()
+    @Min(0)
     fee: number;
 
     @IsNumber()
+    @Min(0)
     fiatAmount: number;
 
     @IsString()
+    @Length(3, 3)
     fiatCurrency: string;
 
     @IsString()
+    @IsNotEmpty()
     bankDetailsHash: string;
 
     @IsString()
