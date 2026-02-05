@@ -50,19 +50,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const { connect } = await import("@stacks/connect");
 
             // Use the new connect function - returns addresses directly
-            const response = await connect({
-                appDetails: {
-                    name: "ClovaPay",
-                    icon: typeof window !== "undefined" ? window.location.origin + "/logo.svg" : "/logo.svg",
-                },
-            });
+            const response = await connect();
 
             console.log("Connect response:", response);
 
             if (response && response.addresses) {
                 // Get STX address - prefer testnet for development, mainnet for production
                 const stxAddressInfo = response.addresses.find(
-                    (addr: { symbol: string }) => addr.symbol === "STX"
+                    (addr) => addr.symbol === "STX"
                 );
 
                 if (stxAddressInfo) {
