@@ -689,11 +689,61 @@
 
     (print {
       event: "order-processing",
-      order-id: order-id
+      order-id: order-id,
+      block: block-height
     })
 
     (ok true)
   )
+)
+
+;; Private helper to mark single order as processing (for batch)
+(define-private (mark-processing-internal (order-id uint))
+  (match (map-get? orders { order-id: order-id })
+    order-data 
+      (if (is-eq (get status order-data) STATUS_PENDING)
+        (begin
+          (map-set orders
+            { order-id: order-id }
+            (merge order-data { status: STATUS_PROCESSING })
+          )
+          (print { event: "order-processing", order-id: order-id, block: block-height })
+          true
+        )
+        false
+      )
+    false
+  )
+)
+
+;; Batch mark multiple orders as processing
+;; @notice Mark multiple orders as processing (admin only)
+;; @param order-ids List of order IDs to mark
+;; @return Number of orders successfully processed
+(define-public (batch-mark-processing (order-ids (list 20 uint)))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (asserts! (> (len order-ids) u0) ERR_INVALID_AMOUNT)
+    
+    (let
+      ((results (map mark-processing-internal order-ids))
+       (success-count (fold count-true results u0)))
+      
+      (print {
+        event: "batch-processing-complete",
+        total: (len order-ids),
+        success: success-count,
+        block: block-height
+      })
+      
+      (ok success-count)
+    )
+  )
+)
+
+;; Helper to count true values
+(define-private (count-true (val bool) (acc uint))
+  (if val (+ acc u1) acc)
 )
 
 ;; Confirm order after Paycrest settlement
