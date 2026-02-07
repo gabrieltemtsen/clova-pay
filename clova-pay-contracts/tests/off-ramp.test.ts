@@ -816,4 +816,247 @@ describe("ClovaPay Off-Ramp Contract", () => {
       expect(block.result).toBeOk(Cl.uint(10000));
     });
   });
+
+  // --- Multi-Admin Functions ---
+  describe("Multi-Admin Support", () => {
+    it("should return initial admin count of 1", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-admin-count",
+        [],
+        deployer
+      );
+      expect(result.result).toBeUint(1);
+    });
+
+    it("should allow owner to add new admin", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should correctly identify authorized admin", () => {
+      // First add wallet1 as admin
+      simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      // Check is-authorized-admin
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "is-authorized-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+      expect(result.result).toBeBool(true);
+    });
+
+    it("should reject non-owner from adding admin", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet2)],
+        wallet1
+      );
+      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+    });
+
+    it("should reject adding existing admin", () => {
+      // Add wallet1 first
+      simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      // Try to add again
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+      expect(block.result).toBeErr(Cl.uint(112)); // ERR_ADMIN_ALREADY_EXISTS
+    });
+
+    it("should allow owner to remove admin", () => {
+      // Add wallet1 as admin first
+      simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      // Remove wallet1
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "remove-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+  });
+
+  // --- Time-Locked Admin Transfer ---
+  describe("Time-Locked Admin Transfer", () => {
+    it("should allow owner to initiate admin transfer", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should return pending admin after initiation", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-pending-admin",
+        [],
+        deployer
+      );
+      expect(result.result).toBeSome(Cl.principal(wallet1));
+    });
+
+    it("should reject immediate completion (timelock not elapsed)", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "complete-admin-transfer",
+        [],
+        wallet1
+      );
+      expect(block.result).toBeErr(Cl.uint(116)); // ERR_TRANSFER_LOCKED
+    });
+
+    it("should allow owner to cancel pending transfer", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "cancel-admin-transfer",
+        [],
+        deployer
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should reject cancel when no transfer pending", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "cancel-admin-transfer",
+        [],
+        deployer
+      );
+      expect(block.result).toBeErr(Cl.uint(115)); // ERR_NO_PENDING_TRANSFER
+    });
+  });
+
+  // --- Order Expiry ---
+  describe("Order Expiry", () => {
+    it("should return default order expiry of 1008 blocks", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-order-expiry",
+        [],
+        deployer
+      );
+      expect(result.result).toBeUint(1008);
+    });
+
+    it("should allow admin to set order expiry", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-order-expiry",
+        [Cl.uint(500)],
+        deployer
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should return false for non-expired fresh order", () => {
+      const bankHash = createBankHash("expiry-test");
+
+      // Create order
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(5000000),
+          Cl.uint(25000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      // Check if expired (should be false)
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "is-order-expired",
+        [Cl.uint(orderId)],
+        deployer
+      );
+      expect(result.result).toBeBool(false);
+    });
+
+    it("should reject expire-order for non-expired order", () => {
+      const bankHash = createBankHash("no-expire-test");
+
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(5000000),
+          Cl.uint(25000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      // Try to expire before time
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "expire-order",
+        [Cl.uint(orderId)],
+        wallet2 // Anyone can call
+      );
+
+      expect(block.result).toBeErr(Cl.uint(117)); // ERR_ORDER_EXPIRED (not yet expired)
+    });
+  });
 });
