@@ -1059,4 +1059,215 @@ describe("ClovaPay Off-Ramp Contract", () => {
       expect(block.result).toBeErr(Cl.uint(117)); // ERR_ORDER_EXPIRED (not yet expired)
     });
   });
+
+  // --- Partial Refunds ---
+  describe("Partial Refunds", () => {
+    it("should allow admin to partial refund processing order", () => {
+      const bankHash = createBankHash("partial-refund-test");
+      const paycrestRef = createPaycrestRef("PARTIAL-REF-123");
+
+      // Create order
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000), // 10 STX
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      // Mark as processing first
+      simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        deployer
+      );
+
+      // Partial refund - settled 6 STX, refund 4 STX
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "partial-refund",
+        [
+          Cl.uint(orderId),
+          Cl.uint(6000000), // settled amount
+          Cl.buffer(paycrestRef),
+          Cl.stringAscii("Bridge timeout after partial settlement"),
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should reject partial refund on pending order", () => {
+      const bankHash = createBankHash("partial-pending-test");
+      const paycrestRef = createPaycrestRef("PARTIAL-FAIL-REF");
+
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(5000000),
+          Cl.uint(25000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      // Try partial refund without marking as processing
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "partial-refund",
+        [
+          Cl.uint(orderId),
+          Cl.uint(3000000),
+          Cl.buffer(paycrestRef),
+          Cl.stringAscii("Test failure"),
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(103)); // ERR_ORDER_NOT_FOUND - wrong status (pending, not processing)
+    });
+
+    it("should reject partial refund with settled >= order amount", () => {
+      const bankHash = createBankHash("partial-invalid-amt");
+      const paycrestRef = createPaycrestRef("PARTIAL-INVALID");
+
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(5000000),
+          Cl.uint(25000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        deployer
+      );
+
+      // Try partial refund with settled = order amount
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "partial-refund",
+        [
+          Cl.uint(orderId),
+          Cl.uint(5000000), // same as order amount
+          Cl.buffer(paycrestRef),
+          Cl.stringAscii("Invalid amount"),
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(101)); // ERR_INVALID_AMOUNT
+    });
+  });
+
+  // --- Batch Operations ---
+  describe("Batch Operations", () => {
+    it("should batch mark multiple orders as processing", () => {
+      const bankHash1 = createBankHash("batch-test-1");
+      const bankHash2 = createBankHash("batch-test-2");
+      const bankHash3 = createBankHash("batch-test-3");
+
+      // Create 3 orders
+      const order1 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [Cl.uint(5000000), Cl.uint(25000), Cl.stringAscii("NGN"), Cl.buffer(bankHash1)],
+        wallet1
+      );
+      const order2 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [Cl.uint(6000000), Cl.uint(30000), Cl.stringAscii("KES"), Cl.buffer(bankHash2)],
+        wallet1
+      );
+      const order3 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [Cl.uint(7000000), Cl.uint(35000), Cl.stringAscii("GHS"), Cl.buffer(bankHash3)],
+        wallet2
+      );
+
+      const orderId1 = (order1.result as any).value.value;
+      const orderId2 = (order2.result as any).value.value;
+      const orderId3 = (order3.result as any).value.value;
+
+      // Batch mark as processing
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "batch-mark-processing",
+        [Cl.list([Cl.uint(orderId1), Cl.uint(orderId2), Cl.uint(orderId3)])],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.uint(3)); // 3 successful
+    });
+
+    it("should reject batch operations from non-admin", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "batch-mark-processing",
+        [Cl.list([Cl.uint(1), Cl.uint(2)])],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+    });
+
+    it("should reject empty batch", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "batch-mark-processing",
+        [Cl.list([])],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(101)); // ERR_INVALID_AMOUNT
+    });
+
+    it("should handle batch with some invalid orders", () => {
+      const bankHash = createBankHash("batch-mixed-test");
+
+      // Create one valid order
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [Cl.uint(5000000), Cl.uint(25000), Cl.stringAscii("NGN"), Cl.buffer(bankHash)],
+        wallet1
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      // Batch with one valid and one invalid order
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "batch-mark-processing",
+        [Cl.list([Cl.uint(orderId), Cl.uint(99999)])], // 99999 doesn't exist
+        deployer
+      );
+
+      // Should return success count of 1 (only valid order processed)
+      expect(block.result).toBeOk(Cl.uint(1));
+    });
+  });
 });

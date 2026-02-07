@@ -87,6 +87,8 @@
 (define-constant STATUS_CANCELLED u3)
 ;; Admin refunded due to settlement failure
 (define-constant STATUS_REFUNDED u4)
+;; Partial settlement completed (some amount refunded)
+(define-constant STATUS_PARTIAL u5)
 
 ;; ============================================
 ;; Data Variables
@@ -687,11 +689,61 @@
 
     (print {
       event: "order-processing",
-      order-id: order-id
+      order-id: order-id,
+      block: block-height
     })
 
     (ok true)
   )
+)
+
+;; Private helper to mark single order as processing (for batch)
+(define-private (mark-processing-internal (order-id uint))
+  (match (map-get? orders { order-id: order-id })
+    order-data 
+      (if (is-eq (get status order-data) STATUS_PENDING)
+        (begin
+          (map-set orders
+            { order-id: order-id }
+            (merge order-data { status: STATUS_PROCESSING })
+          )
+          (print { event: "order-processing", order-id: order-id, block: block-height })
+          true
+        )
+        false
+      )
+    false
+  )
+)
+
+;; Batch mark multiple orders as processing
+;; @notice Mark multiple orders as processing (admin only)
+;; @param order-ids List of order IDs to mark
+;; @return Number of orders successfully processed
+(define-public (batch-mark-processing (order-ids (list 20 uint)))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (asserts! (> (len order-ids) u0) ERR_INVALID_AMOUNT)
+    
+    (let
+      ((results (map mark-processing-internal order-ids))
+       (success-count (fold count-true results u0)))
+      
+      (print {
+        event: "batch-processing-complete",
+        total: (len order-ids),
+        success: success-count,
+        block: block-height
+      })
+      
+      (ok success-count)
+    )
+  )
+)
+
+;; Helper to count true values
+(define-private (count-true (val bool) (acc uint))
+  (if val (+ acc u1) acc)
 )
 
 ;; Confirm order after Paycrest settlement
@@ -780,7 +832,74 @@
       order-id: order-id,
       sender: order-sender,
       refunded: order-amount,
-      reason: reason
+      reason: reason,
+      block: block-height
+    })
+
+    (ok true)
+  )
+)
+
+;; Partial refund when settlement fails after partial success
+;; @notice Partial refund for failed settlements (admin only)
+;; @param order-id Order to partially refund
+;; @param settled-amount Amount that was successfully settled
+;; @param paycrest-ref Paycrest reference for settled portion
+;; @param failure-reason Reason for partial failure
+(define-public (partial-refund 
+    (order-id uint) 
+    (settled-amount uint)
+    (paycrest-ref (buff 64))
+    (failure-reason (string-ascii 64)))
+  (let
+    (
+      (order (unwrap! (get-order order-id) ERR_ORDER_NOT_FOUND))
+      (order-sender (get sender order))
+      (order-amount (get amount order))
+      (fee (calculate-fee settled-amount))
+      (refund-amount (- order-amount settled-amount))
+      (current-treasury (var-get treasury))
+    )
+
+    ;; Only admin can partial refund
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    ;; Only processing orders can be partially refunded
+    (asserts! (is-eq (get status order) STATUS_PROCESSING) ERR_ORDER_NOT_PENDING)
+    ;; Settled amount must be less than order amount
+    (asserts! (< settled-amount order-amount) ERR_INVALID_AMOUNT)
+    ;; Settled amount must be > 0
+    (asserts! (> settled-amount u0) ERR_INVALID_AMOUNT)
+
+    ;; Transfer settled amount (minus fee) to treasury
+    (try! (transfer-from-escrow (- settled-amount fee) current-treasury))
+    ;; Refund the remaining amount to sender
+    (try! (transfer-from-escrow refund-amount order-sender))
+
+    ;; Update escrow tracking
+    (var-set total-escrowed (- (var-get total-escrowed) order-amount))
+    ;; Track fees from the settled portion
+    (var-set total-fees-collected (+ (var-get total-fees-collected) fee))
+
+    ;; Update order status to partial
+    (map-set orders
+      { order-id: order-id }
+      (merge order { 
+        status: STATUS_PARTIAL,
+        confirmed-at: (some block-height),
+        paycrest-ref: (some paycrest-ref)
+      })
+    )
+
+    (print {
+      event: "order-partial-refund",
+      order-id: order-id,
+      sender: order-sender,
+      settled-amount: settled-amount,
+      refund-amount: refund-amount,
+      fee: fee,
+      paycrest-ref: paycrest-ref,
+      reason: failure-reason,
+      block: block-height
     })
 
     (ok true)
