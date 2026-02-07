@@ -55,6 +55,18 @@
 (define-constant ERR_COOLDOWN_ACTIVE (err u110))
 ;; u111: User has exceeded their daily volume limit
 (define-constant ERR_DAILY_LIMIT_EXCEEDED (err u111))
+;; u112: Admin already exists in the admin list
+(define-constant ERR_ADMIN_ALREADY_EXISTS (err u112))
+;; u113: Admin not found in the admin list
+(define-constant ERR_ADMIN_NOT_FOUND (err u113))
+;; u114: Cannot remove the last admin
+(define-constant ERR_CANNOT_REMOVE_LAST_ADMIN (err u114))
+;; u115: Admin transfer is not pending
+(define-constant ERR_NO_PENDING_TRANSFER (err u115))
+;; u116: Admin transfer timelock has not elapsed
+(define-constant ERR_TRANSFER_LOCKED (err u116))
+;; u117: Order has expired
+(define-constant ERR_ORDER_EXPIRED (err u117))
 
 ;; Fee rate in basis points (100 = 1%)
 (define-constant FEE_DENOMINATOR u10000)
@@ -92,6 +104,21 @@
 (define-data-var total-fees-collected uint u0)
 ;; @notice Emergency pause flag to halt operations
 (define-data-var paused bool false)
+
+;; ============================================
+;; Multi-Admin & Time-Lock Variables
+;; ============================================
+
+;; @notice Pending admin for time-locked transfer
+(define-data-var pending-admin (optional principal) none)
+;; @notice Block height when admin transfer can be completed
+(define-data-var admin-transfer-unlock-block uint u0)
+;; @notice Number of blocks for admin transfer timelock (~24 hours)
+(define-constant ADMIN_TRANSFER_DELAY u144)
+;; @notice Count of active admins
+(define-data-var admin-count uint u1)
+;; @notice Order expiry in blocks (~1 week = 1008 blocks)
+(define-data-var order-expiry-blocks uint u1008)
 
 ;; Track total escrowed STX for accounting
 ;; @notice Total STX currently held in escrow
@@ -176,6 +203,17 @@
 )
 
 ;; ============================================
+;; Multi-Admin Map
+;; ============================================
+
+;; @notice Map of authorized admins
+;; @dev Initial admin (CONTRACT_OWNER) is set in initialization
+(define-map admin-list
+  { admin: principal }
+  { active: bool, added-at: uint }
+)
+
+;; ============================================
 ;; Private Helper Functions
 ;; ============================================
 
@@ -195,11 +233,38 @@
 ;; 2. Inlining common validation patterns
 ;; 3. Reducing duplicate status comparisons
 
-;; Check if caller is admin (caches var-get)
-;; @notice Check if caller is admin
+;; Check if caller is admin (supports both legacy admin and multi-admin list)
+;; @notice Check if caller is an authorized admin
 ;; @return bool True if tx-sender is admin
 (define-private (is-admin)
-  (is-eq tx-sender (var-get admin))
+  (or 
+    (is-eq tx-sender (var-get admin))
+    (match (map-get? admin-list { admin: tx-sender })
+      admin-data (get active admin-data)
+      false
+    )
+  )
+)
+
+;; Check if principal is an authorized admin (read-only version)
+;; @notice Check if given principal is admin
+;; @param who Principal to check
+;; @return bool True if who is admin
+(define-read-only (is-authorized-admin (who principal))
+  (or 
+    (is-eq who (var-get admin))
+    (match (map-get? admin-list { admin: who })
+      admin-data (get active admin-data)
+      false
+    )
+  )
+)
+
+;; Check if caller is the contract owner (only owner can manage admins)
+;; @notice Check if caller is contract owner
+;; @return bool True if tx-sender is CONTRACT_OWNER
+(define-private (is-owner)
+  (is-eq tx-sender CONTRACT_OWNER)
 )
 
 ;; Check if order status allows cancellation/refund
@@ -381,6 +446,48 @@
 )
 
 ;; ============================================
+;; Order Expiry Functions
+;; ============================================
+
+;; @notice Get order expiry period in blocks
+;; @return uint Expiry blocks (~1 week default)
+(define-read-only (get-order-expiry)
+  (var-get order-expiry-blocks)
+)
+
+;; @notice Check if an order has expired
+;; @param order-id Order to check
+;; @return bool True if expired
+(define-read-only (is-order-expired (order-id uint))
+  (match (map-get? orders { order-id: order-id })
+    order-data 
+      (and 
+        (is-eq (get status order-data) STATUS_PENDING)
+        (> block-height (+ (get created-at order-data) (var-get order-expiry-blocks)))
+      )
+    false
+  )
+)
+
+;; @notice Get pending admin for time-locked transfer
+;; @return Optional principal
+(define-read-only (get-pending-admin)
+  (var-get pending-admin)
+)
+
+;; @notice Get admin transfer unlock block
+;; @return uint Block when transfer can complete
+(define-read-only (get-admin-transfer-unlock-block)
+  (var-get admin-transfer-unlock-block)
+)
+
+;; @notice Get count of active admins
+;; @return uint Admin count
+(define-read-only (get-admin-count)
+  (var-get admin-count)
+)
+
+;; ============================================
 ;; Public Functions - User Actions
 ;; ============================================
 
@@ -504,7 +611,54 @@
       event: "order-cancelled",
       order-id: order-id,
       sender: order-sender,
-      refunded: order-amount
+      refunded: order-amount,
+      block: block-height
+    })
+
+    (ok true)
+  )
+)
+
+;; ============================================
+;; Order Expiry Actions
+;; ============================================
+
+;; @notice Expire a stale pending order (anyone can call)
+;; @param order-id Order to expire
+;; @return (response bool uint)
+(define-public (expire-order (order-id uint))
+  (let
+    (
+      (order (unwrap! (get-order order-id) ERR_ORDER_NOT_FOUND))
+      (order-sender (get sender order))
+      (order-amount (get amount order))
+    )
+
+    ;; Order must be pending
+    (asserts! (is-eq (get status order) STATUS_PENDING) ERR_ORDER_NOT_PENDING)
+    ;; Order must have expired
+    (asserts! (> block-height (+ (get created-at order) (var-get order-expiry-blocks))) ERR_ORDER_EXPIRED)
+
+    ;; Refund full amount to sender
+    (try! (transfer-from-escrow order-amount order-sender))
+
+    ;; Update escrow tracking
+    (var-set total-escrowed (- (var-get total-escrowed) order-amount))
+
+    ;; Update order status to refunded (expired)
+    (map-set orders
+      { order-id: order-id }
+      (merge order { status: STATUS_REFUNDED })
+    )
+
+    ;; Emit event
+    (print {
+      event: "order-expired",
+      order-id: order-id,
+      sender: order-sender,
+      refunded: order-amount,
+      expired-by: tx-sender,
+      block: block-height
     })
 
     (ok true)
@@ -667,7 +821,117 @@
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
     (var-set admin new-admin)
-    (print { event: "admin-updated", new-admin: new-admin })
+    (print { event: "admin-updated", new-admin: new-admin, block: block-height })
+    (ok true)
+  )
+)
+
+;; ============================================
+;; Multi-Admin Management (Owner Only)
+;; ============================================
+
+;; @notice Add a new admin to the admin list (owner only)
+;; @param new-admin Principal to add as admin
+(define-public (add-admin (new-admin principal))
+  (begin
+    (asserts! (is-owner) ERR_NOT_AUTHORIZED)
+    ;; Check if already exists
+    (asserts! (not (is-authorized-admin new-admin)) ERR_ADMIN_ALREADY_EXISTS)
+    
+    ;; Add to admin list
+    (map-set admin-list
+      { admin: new-admin }
+      { active: true, added-at: block-height }
+    )
+    
+    ;; Increment admin count
+    (var-set admin-count (+ (var-get admin-count) u1))
+    
+    (print { event: "admin-added", admin: new-admin, block: block-height })
+    (ok true)
+  )
+)
+
+;; @notice Remove an admin from the admin list (owner only)
+;; @param admin-to-remove Principal to remove
+(define-public (remove-admin (admin-to-remove principal))
+  (begin
+    (asserts! (is-owner) ERR_NOT_AUTHORIZED)
+    ;; Cannot remove contract owner
+    (asserts! (not (is-eq admin-to-remove CONTRACT_OWNER)) ERR_NOT_AUTHORIZED)
+    ;; Must have at least 1 admin remaining
+    (asserts! (> (var-get admin-count) u1) ERR_CANNOT_REMOVE_LAST_ADMIN)
+    ;; Must be in admin list
+    (asserts! (is-authorized-admin admin-to-remove) ERR_ADMIN_NOT_FOUND)
+    
+    ;; Deactivate in admin list
+    (map-set admin-list
+      { admin: admin-to-remove }
+      { active: false, added-at: u0 }
+    )
+    
+    ;; Decrement admin count
+    (var-set admin-count (- (var-get admin-count) u1))
+    
+    (print { event: "admin-removed", admin: admin-to-remove, block: block-height })
+    (ok true)
+  )
+)
+
+;; ============================================
+;; Time-Locked Admin Transfer
+;; ============================================
+
+;; @notice Initiate a time-locked admin transfer (owner only)
+;; @param new-primary-admin New primary admin after timelock
+(define-public (initiate-admin-transfer (new-primary-admin principal))
+  (begin
+    (asserts! (is-owner) ERR_NOT_AUTHORIZED)
+    
+    (var-set pending-admin (some new-primary-admin))
+    (var-set admin-transfer-unlock-block (+ block-height ADMIN_TRANSFER_DELAY))
+    
+    (print { 
+      event: "admin-transfer-initiated", 
+      pending-admin: new-primary-admin, 
+      unlock-block: (+ block-height ADMIN_TRANSFER_DELAY),
+      block: block-height 
+    })
+    (ok true)
+  )
+)
+
+;; @notice Complete the time-locked admin transfer (new admin only)
+(define-public (complete-admin-transfer)
+  (let
+    (
+      (new-admin (unwrap! (var-get pending-admin) ERR_NO_PENDING_TRANSFER))
+    )
+    ;; Only pending admin can complete
+    (asserts! (is-eq tx-sender new-admin) ERR_NOT_AUTHORIZED)
+    ;; Timelock must have elapsed
+    (asserts! (>= block-height (var-get admin-transfer-unlock-block)) ERR_TRANSFER_LOCKED)
+    
+    ;; Transfer admin
+    (var-set admin new-admin)
+    (var-set pending-admin none)
+    (var-set admin-transfer-unlock-block u0)
+    
+    (print { event: "admin-transfer-completed", new-admin: new-admin, block: block-height })
+    (ok true)
+  )
+)
+
+;; @notice Cancel a pending admin transfer (owner only)
+(define-public (cancel-admin-transfer)
+  (begin
+    (asserts! (is-owner) ERR_NOT_AUTHORIZED)
+    (asserts! (is-some (var-get pending-admin)) ERR_NO_PENDING_TRANSFER)
+    
+    (var-set pending-admin none)
+    (var-set admin-transfer-unlock-block u0)
+    
+    (print { event: "admin-transfer-cancelled", block: block-height })
     (ok true)
   )
 )
@@ -701,7 +965,19 @@
   (begin
     (asserts! (is-admin) ERR_NOT_AUTHORIZED)
     (var-set paused new-paused)
-    (print { event: "pause-toggled", paused: new-paused })
+    (print { event: "pause-toggled", paused: new-paused, block: block-height })
+    (ok true)
+  )
+)
+
+;; @notice Set order expiry period (admin only)
+;; @param new-expiry New expiry in blocks
+(define-public (set-order-expiry (new-expiry uint))
+  (begin
+    (asserts! (is-admin) ERR_NOT_AUTHORIZED)
+    (asserts! (> new-expiry u0) ERR_INVALID_AMOUNT)
+    (var-set order-expiry-blocks new-expiry)
+    (print { event: "order-expiry-updated", new-expiry: new-expiry, block: block-height })
     (ok true)
   )
 )
