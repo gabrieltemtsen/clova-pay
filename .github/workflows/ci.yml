@@ -35,6 +35,8 @@ jobs:
     defaults:
       run:
         working-directory: clova-pay-backend
+    env:
+      DATABASE_URL: "file:./test.db"
     steps:
       - uses: actions/checkout@v4
 
