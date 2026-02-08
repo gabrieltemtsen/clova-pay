@@ -492,6 +492,12 @@
   (var-get admin-count)
 )
 
+;; @notice Get contract version
+;; @return String version number
+(define-read-only (get-contract-version)
+  "1.1.0"
+)
+
 ;; ============================================
 ;; Public Functions - User Actions
 ;; ============================================
