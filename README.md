@@ -119,7 +119,11 @@ npm run dev
 |----------|-------------|
 | `confirm-order` | Confirm order after fiat settlement |
 | `mark-processing` | Mark order as being processed |
+| `batch-mark-processing` | Process multiple orders at once |
 | `force-refund` | Refund failed orders |
+| `partial-refund` | Partial refund for failed settlements |
+| `add-admin` | Add new admin (owner only) |
+| `remove-admin` | Remove admin (owner only) |
 | `set-token-enabled` | Whitelist SIP-010 tokens |
 
 ### Read-Only Functions
@@ -146,8 +150,10 @@ npm run dev
 ## 🔐 Security
 
 - **Escrow Model** — Funds locked until fiat confirmed
+- **Multi-Admin** — Multiple admins with time-locked transfers
 - **Admin Controls** — Pause, fee limits, token whitelist
-- **Tested** — Comprehensive test suite (18+ tests)
+- **Order Expiry** — Auto-expire stale orders to protect funds
+- **Tested** — Comprehensive test suite (61 tests)
 - **Clarity** — Decidable language prevents exploits
 
 ---
@@ -156,9 +162,10 @@ npm run dev
 
 - [x] **Phase 1** — Smart contract & frontend foundation
 - [x] **Phase 2** — SIP-010 token support
-- [ ] **Phase 3** — NestJS backend & Paycrest integration
-- [ ] **Phase 4** — Mainnet deployment
-- [ ] **Phase 5** — Mobile app
+- [x] **Phase 3** — NestJS backend & Paycrest integration
+- [x] **Phase 4** — Enhanced admin controls & security
+- [ ] **Phase 5** — Mainnet deployment
+- [ ] **Phase 6** — Mobile app
 
 ---
 
