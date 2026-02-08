@@ -147,6 +147,16 @@ describe("ClovaPay Off-Ramp Contract", () => {
       );
       expect(result.result.type).toBe(ClarityType.UInt);
     });
+
+    it("should return contract version", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-contract-version",
+        [],
+        deployer
+      );
+      expect(result.result).toBeAscii("1.1.0");
+    });
   });
 
   // --- Order Creation ---
