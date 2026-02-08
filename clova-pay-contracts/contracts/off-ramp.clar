@@ -1,20 +1,23 @@
 ;; ============================================
-;; ClovaPay Off-Ramp Contract v1.0.0
+;; ClovaPay Off-Ramp Contract v1.1.0
 ;; ============================================
 ;; 
 ;; @title Off-Ramp Escrow Contract
 ;; @author ClovaPay Team
 ;; @notice Escrow contract for crypto-to-fiat conversions via Paycrest bridge
 ;; @dev Supports both STX and SIP-010 tokens for deposits
-;; @version 1.0.0
+;; @version 1.1.0
 ;; @license MIT
 ;;
 ;; Features:
 ;; - STX and SIP-010 token deposits
 ;; - Escrow management with status tracking
 ;; - Rate limiting and security controls
-;; - Multi-currency fiat support (NGN, KES, GHS)
-;; - Admin controls for configuration
+;; - Multi-currency fiat support (NGN, KES, GHS, UGX, TZS)
+;; - Multi-admin support with time-locked transfers
+;; - Partial refunds for failed settlements
+;; - Batch operations for efficiency
+;; - Order expiry and auto-refund
 ;;
 ;; ============================================
 
@@ -487,6 +490,12 @@
 ;; @return uint Admin count
 (define-read-only (get-admin-count)
   (var-get admin-count)
+)
+
+;; @notice Get contract version
+;; @return String version number
+(define-read-only (get-contract-version)
+  "1.1.0"
 )
 
 ;; ============================================
