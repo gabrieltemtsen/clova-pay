@@ -13,6 +13,10 @@ const accounts = simnet.getAccounts();
 const deployer = accounts.get("deployer")!;
 const wallet1 = accounts.get("wallet_1")!;
 const wallet2 = accounts.get("wallet_2")!;
+const wallet3 = accounts.get("wallet_3")!;
+
+// Mock token contract for SIP-010 tests
+const mockTokenContract = "mock-sip010-token";
 
 // Track order nonce for dynamic ID checking
 let currentOrderNonce = 0;
@@ -41,6 +45,13 @@ const createPaycrestRef = (ref: string) => {
   const encoded = encoder.encode(ref);
   buffer.set(encoded.slice(0, 64));
   return buffer;
+};
+
+// Helper to advance blocks
+const advanceBlocks = (count: number) => {
+  for (let i = 0; i < count; i++) {
+    simnet.mineEmptyBlock();
+  }
 };
 
 // ============================================
@@ -134,7 +145,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         [],
         deployer
       );
-      // Cooldown is set to 0 in beforeEach
       expect(result.result.type).toBe(ClarityType.UInt);
     });
 
@@ -157,6 +167,46 @@ describe("ClovaPay Off-Ramp Contract", () => {
       );
       expect(result.result).toBeAscii("1.1.0");
     });
+
+    it("should return order expiry", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-order-expiry",
+        [],
+        deployer
+      );
+      expect(result.result).toBeUint(1008);
+    });
+
+    it("should return total escrowed", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-escrowed",
+        [],
+        deployer
+      );
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should return total fees collected", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-fees",
+        [],
+        deployer
+      );
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
+
+    it("should return contract balance", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-contract-balance",
+        [],
+        deployer
+      );
+      expect(result.result.type).toBe(ClarityType.UInt);
+    });
   });
 
   // --- Order Creation ---
@@ -178,9 +228,8 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeOk(Cl.uint(1)); // First order ID = 1
+      expect(block.result).toBeOk(Cl.uint(1));
 
-      // Verify order was created
       const orderResult = simnet.callReadOnlyFn(
         "off-ramp",
         "get-order",
@@ -206,13 +255,12 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(101)); // ERR_INVALID_AMOUNT
+      expect(block.result).toBeErr(Cl.uint(101));
     });
 
     it("should increment order nonce", () => {
       const bankHash = createBankHash("test-nonce");
 
-      // Get current nonce
       const beforeNonce = simnet.callReadOnlyFn(
         "off-ramp",
         "get-order-nonce",
@@ -221,7 +269,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
       );
       const startNonce = Number(beforeNonce.result.value);
 
-      // Create first order
       const block1 = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -236,7 +283,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       expect(block1.result).toBeOk(Cl.uint(startNonce + 1));
 
-      // Create second order
       const block2 = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -258,7 +304,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
     it("should allow user to cancel their pending order", () => {
       const bankHash = createBankHash("cancel-test");
 
-      // Create order
       simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -271,7 +316,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      // Cancel order
       const cancelBlock = simnet.callPublicFn(
         "off-ramp",
         "cancel-order",
@@ -285,7 +329,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
     it("should reject cancellation by non-owner", () => {
       const bankHash = createBankHash("cancel-auth-test");
 
-      // Create order as wallet1
       simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -298,7 +341,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      // Try to cancel as wallet2
       const cancelBlock = simnet.callPublicFn(
         "off-ramp",
         "cancel-order",
@@ -306,7 +348,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet2
       );
 
-      expect(cancelBlock.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(cancelBlock.result).toBeErr(Cl.uint(100));
     });
   });
 
@@ -315,7 +357,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
     it("should allow admin to mark order as processing", () => {
       const bankHash = createBankHash("processing-test");
 
-      // Create order
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -328,10 +369,8 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      // Get the order ID from the result
       const orderId = (createBlock.result as any).value.value;
 
-      // Admin marks as processing
       const block = simnet.callPublicFn(
         "off-ramp",
         "mark-processing",
@@ -346,7 +385,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const bankHash = createBankHash("confirm-test");
       const paycrestRef = createPaycrestRef("PAY-123456789");
 
-      // Create order
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -359,10 +397,8 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      // Get the order ID from the result
       const orderId = (createBlock.result as any).value.value;
 
-      // Admin confirms
       const block = simnet.callPublicFn(
         "off-ramp",
         "confirm-order",
@@ -376,7 +412,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
     it("should allow admin to force refund", () => {
       const bankHash = createBankHash("refund-test");
 
-      // Create order
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -389,10 +424,8 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      // Get the order ID from the result
       const orderId = (createBlock.result as any).value.value;
 
-      // Admin force refunds
       const block = simnet.callPublicFn(
         "off-ramp",
         "force-refund",
@@ -406,7 +439,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
     it("should reject admin functions from non-admin", () => {
       const bankHash = createBankHash("auth-test");
 
-      // Create order
       simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -419,7 +451,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      // Non-admin tries to mark processing
       const block = simnet.callPublicFn(
         "off-ramp",
         "mark-processing",
@@ -427,7 +458,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet2
       );
 
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(block.result).toBeErr(Cl.uint(100));
     });
   });
 
@@ -437,13 +468,12 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-fee-rate",
-        [Cl.uint(200)], // 2%
+        [Cl.uint(200)],
         deployer
       );
 
       expect(block.result).toBeOk(Cl.bool(true));
 
-      // Verify new rate
       const result = simnet.callReadOnlyFn(
         "off-ramp",
         "get-fee-rate",
@@ -457,11 +487,11 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-fee-rate",
-        [Cl.uint(600)], // 6% - too high
+        [Cl.uint(600)],
         deployer
       );
 
-      expect(block.result).toBeErr(Cl.uint(101)); // ERR_INVALID_AMOUNT
+      expect(block.result).toBeErr(Cl.uint(101));
     });
 
     it("should allow admin to pause contract", () => {
@@ -474,7 +504,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       expect(block.result).toBeOk(Cl.bool(true));
 
-      // Verify paused
       const result = simnet.callReadOnlyFn(
         "off-ramp",
         "get-paused",
@@ -485,7 +514,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
 
     it("should reject order creation when paused", () => {
-      // Pause
       simnet.callPublicFn(
         "off-ramp",
         "set-paused",
@@ -493,7 +521,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Try to create order
       const bankHash = createBankHash("paused-test");
       const block = simnet.callPublicFn(
         "off-ramp",
@@ -507,7 +534,17 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(block.result).toBeErr(Cl.uint(100));
+    });
+
+    it("should allow admin to set order expiry", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-order-expiry",
+        [Cl.uint(500)],
+        deployer
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
     });
   });
 
@@ -516,12 +553,11 @@ describe("ClovaPay Off-Ramp Contract", () => {
     it("should reject orders below minimum amount", () => {
       const bankHash = createBankHash("min-test");
 
-      // Try to create order with 0.5 STX (below 1 STX minimum)
       const block = simnet.callPublicFn(
         "off-ramp",
         "create-order",
         [
-          Cl.uint(500000), // 0.5 STX
+          Cl.uint(500000),
           Cl.uint(2500),
           Cl.stringAscii("NGN"),
           Cl.buffer(bankHash),
@@ -529,14 +565,14 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(108)); // ERR_AMOUNT_TOO_LOW
+      expect(block.result).toBeErr(Cl.uint(108));
     });
 
     it("should allow admin to set min order amount", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-min-order-amount",
-        [Cl.uint(500000)], // Set to 0.5 STX
+        [Cl.uint(500000)],
         deployer
       );
 
@@ -547,7 +583,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-max-order-amount",
-        [Cl.uint(50000000000)], // 50K STX
+        [Cl.uint(50000000000)],
         deployer
       );
 
@@ -562,17 +598,27 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(block.result).toBeErr(Cl.uint(100));
     });
   });
 
   // --- Security: Cooldown & Daily Limits ---
   describe("Security: Cooldown & Daily Limits", () => {
+    beforeEach(() => {
+      // Reset cooldown to default for these tests
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-order-cooldown",
+        [Cl.uint(6)],
+        deployer
+      );
+    });
+
     it("should allow admin to set cooldown", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-order-cooldown",
-        [Cl.uint(10)], // 10 blocks
+        [Cl.uint(10)],
         deployer
       );
 
@@ -583,7 +629,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-daily-limit",
-        [Cl.uint(50000000000)], // 50K STX
+        [Cl.uint(50000000000)],
         deployer
       );
 
@@ -598,29 +644,152 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(block.result).toBeErr(Cl.uint(100));
     });
 
-    it("should reject non-admin from setting daily limit", () => {
-      const block = simnet.callPublicFn(
+    it("should enforce cooldown between orders", () => {
+      const bankHash = createBankHash("cooldown-test");
+
+      simnet.callPublicFn(
         "off-ramp",
-        "set-daily-limit",
-        [Cl.uint(1000000)],
-        wallet2
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(110));
+    });
+
+    it("should enforce daily volume limit", () => {
+      const bankHash = createBankHash("daily-limit-test");
+      
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-daily-limit",
+        [Cl.uint(10000000000)], // 10,000 STX
+        deployer
+      );
+
+      for (let i = 0; i < 4; i++) {
+        const block = simnet.callPublicFn(
+          "off-ramp",
+          "create-order",
+          [
+            Cl.uint(2000000000),
+            Cl.uint(10000),
+            Cl.stringAscii("NGN"),
+            Cl.buffer(bankHash),
+          ],
+          wallet1
+        );
+        expect(block.result).toBeOk(Cl.uint(i + 1));
+      }
+
+      const block5 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(2000000000),
+          Cl.uint(10000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      expect(block5.result).toBeErr(Cl.uint(111));
+    });
+
+    it("should reset daily limit after blocks pass", () => {
+      const bankHash = createBankHash("reset-test");
+      
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-daily-limit",
+        [Cl.uint(10000000000)], // 10,000 STX
+        deployer
+      );
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(9000000000),
+          Cl.uint(45000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const block1 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(2000000000),
+          Cl.uint(10000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+      expect(block1.result).toBeErr(Cl.uint(111));
+
+      advanceBlocks(145);
+
+      const block2 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(2000000000),
+          Cl.uint(10000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+      expect(block2.result).toBeOk(Cl.uint(2));
     });
   });
 
   // --- Token Support ---
   describe("Token Support", () => {
+    beforeEach(() => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-token-enabled",
+        [
+          Cl.principal(mockTokenContract),
+          Cl.bool(true),
+          Cl.stringAscii("MOCK"),
+        ],
+        deployer
+      );
+    });
+
     it("should allow admin to enable a token", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-token-enabled",
         [
-          Cl.principal(deployer), // Mock token address
+          Cl.principal(deployer),
           Cl.bool(true),
           Cl.stringAscii("USDC"),
         ],
@@ -631,19 +800,17 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
 
     it("should allow admin to disable a token", () => {
-      // First enable
       simnet.callPublicFn(
         "off-ramp",
         "set-token-enabled",
         [
-          Cl.principal(wallet1), // Mock token
+          Cl.principal(wallet1),
           Cl.bool(true),
           Cl.stringAscii("sBTC"),
         ],
         deployer
       );
 
-      // Then disable
       const block = simnet.callPublicFn(
         "off-ramp",
         "set-token-enabled",
@@ -659,27 +826,158 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
 
     it("should check if token is supported", () => {
-      // Enable a token first
-      simnet.callPublicFn(
-        "off-ramp",
-        "set-token-enabled",
-        [
-          Cl.principal(deployer),
-          Cl.bool(true),
-          Cl.stringAscii("TEST"),
-        ],
-        deployer
-      );
-
-      // Check if supported
       const result = simnet.callReadOnlyFn(
         "off-ramp",
         "is-token-supported",
-        [Cl.principal(deployer)],
+        [Cl.principal(mockTokenContract)],
         deployer
       );
 
       expect(result.result).toBeBool(true);
+    });
+
+    it("should create token order successfully", () => {
+      const bankHash = createBankHash("token-order-test");
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "create-order-token",
+        [
+          Cl.principal(mockTokenContract),
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      expect(block.result).toBeOk(Cl.uint(1));
+
+      const tokenOrder = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-order-token",
+        [Cl.uint(1)],
+        deployer
+      );
+
+      expect(tokenOrder.result).toBeSome(Cl.tuple({
+        token: Cl.principal(mockTokenContract)
+      }));
+    });
+
+    it("should reject token order for unsupported token", () => {
+      const bankHash = createBankHash("unsupported-test");
+      const unsupportedToken = "unsupported-token";
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "create-order-token",
+        [
+          Cl.principal(unsupportedToken),
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(107));
+    });
+
+    it("should track token order in user orders list", () => {
+      const bankHash = createBankHash("user-token-test");
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "create-order-token",
+        [
+          Cl.principal(mockTokenContract),
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const userOrders = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-user-orders",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const orderIds = (userOrders.result as any).value["order-ids"].value;
+      expect(orderIds).toContainEqual(Cl.uint(1));
+    });
+  });
+
+  // --- Multi-Currency Support ---
+  describe("Multi-Currency Support", () => {
+    it("should support all major African currencies", () => {
+      const currencies = ["NGN", "KES", "GHS", "UGX", "TZS"];
+      const bankHash = createBankHash("currency-test");
+
+      currencies.forEach((currency, index) => {
+        const block = simnet.callPublicFn(
+          "off-ramp",
+          "create-order",
+          [
+            Cl.uint(10000000),
+            Cl.uint(50000 * (index + 1)),
+            Cl.stringAscii(currency),
+            Cl.buffer(bankHash),
+          ],
+          wallet1
+        );
+
+        expect(block.result).toBeOk(Cl.uint(index + 1));
+      });
+    });
+
+    it("should allow admin to configure currency-specific minimums", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-currency-enabled",
+        [
+          Cl.stringAscii("NGN"),
+          Cl.bool(true),
+          Cl.stringAscii("Nigerian Naira"),
+          Cl.uint(1000)
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-currency-info",
+        [Cl.stringAscii("NGN")],
+        deployer
+      );
+
+      expect(result.result).toBeSome(Cl.tuple({
+        enabled: Cl.bool(true),
+        name: Cl.stringAscii("Nigerian Naira"),
+        "min-amount": Cl.uint(1000)
+      }));
+    });
+
+    it("should return supported currencies list", () => {
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-supported-currencies",
+        [],
+        deployer
+      );
+
+      const currencies = (result.result as any).value;
+      expect(currencies).toContainEqual(Cl.stringAscii("NGN"));
+      expect(currencies).toContainEqual(Cl.stringAscii("KES"));
+      expect(currencies).toContainEqual(Cl.stringAscii("GHS"));
     });
   });
 
@@ -689,7 +987,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const result = simnet.callReadOnlyFn(
         "off-ramp",
         "get-order",
-        [Cl.uint(999999)], // Non-existent order
+        [Cl.uint(999999)],
         deployer
       );
 
@@ -700,7 +998,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const bankHash = createBankHash("dup-confirm-test");
       const paycrestRef = createPaycrestRef("DUP-REF-123");
 
-      // Create order
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -715,7 +1012,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       const orderId = (createBlock.result as any).value.value;
 
-      // First confirmation
       simnet.callPublicFn(
         "off-ramp",
         "confirm-order",
@@ -723,7 +1019,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Try second confirmation
       const block = simnet.callPublicFn(
         "off-ramp",
         "confirm-order",
@@ -731,7 +1026,33 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      expect(block.result).toBeErr(Cl.uint(105)); // ERR_ALREADY_CONFIRMED
+      expect(block.result).toBeErr(Cl.uint(105));
+    });
+
+    it("should return false for non-expired fresh order", () => {
+      const bankHash = createBankHash("expiry-test");
+
+      const createBlock = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(5000000),
+          Cl.uint(25000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (createBlock.result as any).value.value;
+
+      const result = simnet.callReadOnlyFn(
+        "off-ramp",
+        "is-order-expired",
+        [Cl.uint(orderId)],
+        deployer
+      );
+      expect(result.result).toBeBool(false);
     });
   });
 
@@ -739,9 +1060,8 @@ describe("ClovaPay Off-Ramp Contract", () => {
   describe("Accounting & Escrow", () => {
     it("should track escrowed amount", () => {
       const bankHash = createBankHash("escrow-track-test");
-      const amount = 10000000; // 10 STX
+      const amount = 10000000;
 
-      // Create order
       simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -754,33 +1074,9 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet2
       );
 
-      // Check escrowed amount is tracked
       const result = simnet.callReadOnlyFn(
         "off-ramp",
         "get-total-escrowed",
-        [],
-        deployer
-      );
-
-      // Should have some escrowed value (might include fees from other tests)
-      expect(result.result.type).toBe(ClarityType.UInt);
-    });
-
-    it("should track collected fees", () => {
-      const result = simnet.callReadOnlyFn(
-        "off-ramp",
-        "get-total-fees",
-        [],
-        deployer
-      );
-
-      expect(result.result.type).toBe(ClarityType.UInt);
-    });
-
-    it("should return contract balance", () => {
-      const result = simnet.callReadOnlyFn(
-        "off-ramp",
-        "get-contract-balance",
         [],
         deployer
       );
@@ -789,16 +1085,14 @@ describe("ClovaPay Off-Ramp Contract", () => {
     });
 
     it("should allow admin to withdraw fees", () => {
-      // Need to have some confirmed orders first to have fees
       const bankHash = createBankHash("fee-withdraw-test");
       const paycrestRef = createPaycrestRef("FEE-TEST-REF");
 
-      // Create and confirm order to generate fees
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
         [
-          Cl.uint(10000000), // 10 STX
+          Cl.uint(10000000),
           Cl.uint(50000),
           Cl.stringAscii("NGN"),
           Cl.buffer(bankHash),
@@ -815,15 +1109,67 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Try to withdraw a small amount of fees
       const block = simnet.callPublicFn(
         "off-ramp",
         "withdraw-fees",
-        [Cl.uint(10000)], // 0.01 STX
+        [Cl.uint(10000)],
         deployer
       );
 
       expect(block.result).toBeOk(Cl.uint(10000));
+    });
+
+    it("should maintain escrow balance invariant", () => {
+      const bankHash = createBankHash("invariant-test");
+
+      const initialEscrow = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-escrowed",
+        [],
+        deployer
+      );
+
+      const amount = 10000000;
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(amount),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      const afterCreate = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-escrowed",
+        [],
+        deployer
+      );
+
+      expect(Number(afterCreate.result.value)).toBe(
+        Number(initialEscrow.result.value) + amount
+      );
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "cancel-order",
+        [Cl.uint(orderId)],
+        wallet1
+      );
+
+      const afterCancel = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-escrowed",
+        [],
+        deployer
+      );
+
+      expect(Number(afterCancel.result.value)).toBe(Number(initialEscrow.result.value));
     });
   });
 
@@ -847,10 +1193,17 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
       expect(block.result).toBeOk(Cl.bool(true));
+
+      const count = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-admin-count",
+        [],
+        deployer
+      );
+      expect(count.result).toBeUint(2);
     });
 
     it("should correctly identify authorized admin", () => {
-      // First add wallet1 as admin
       simnet.callPublicFn(
         "off-ramp",
         "add-admin",
@@ -858,7 +1211,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Check is-authorized-admin
       const result = simnet.callReadOnlyFn(
         "off-ramp",
         "is-authorized-admin",
@@ -875,11 +1227,10 @@ describe("ClovaPay Off-Ramp Contract", () => {
         [Cl.principal(wallet2)],
         wallet1
       );
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(block.result).toBeErr(Cl.uint(100));
     });
 
     it("should reject adding existing admin", () => {
-      // Add wallet1 first
       simnet.callPublicFn(
         "off-ramp",
         "add-admin",
@@ -887,18 +1238,16 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Try to add again
       const block = simnet.callPublicFn(
         "off-ramp",
         "add-admin",
         [Cl.principal(wallet1)],
         deployer
       );
-      expect(block.result).toBeErr(Cl.uint(112)); // ERR_ADMIN_ALREADY_EXISTS
+      expect(block.result).toBeErr(Cl.uint(112));
     });
 
     it("should allow owner to remove admin", () => {
-      // Add wallet1 as admin first
       simnet.callPublicFn(
         "off-ramp",
         "add-admin",
@@ -906,13 +1255,65 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Remove wallet1
       const block = simnet.callPublicFn(
         "off-ramp",
         "remove-admin",
         [Cl.principal(wallet1)],
         deployer
       );
+      expect(block.result).toBeOk(Cl.bool(true));
+
+      const count = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-admin-count",
+        [],
+        deployer
+      );
+      expect(count.result).toBeUint(1);
+    });
+
+    it("should prevent removing the last admin", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "remove-admin",
+        [Cl.principal(deployer)],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(114));
+    });
+
+    it("should allow multiple admins to perform admin functions", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const bankHash = createBankHash("multi-admin-test");
+
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet2
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        wallet1
+      );
+
       expect(block.result).toBeOk(Cl.bool(true));
     });
   });
@@ -944,6 +1345,14 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
       expect(result.result).toBeSome(Cl.principal(wallet1));
+
+      const unlockBlock = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-admin-transfer-unlock-block",
+        [],
+        deployer
+      );
+      expect(unlockBlock.result.type).toBe(ClarityType.UInt);
     });
 
     it("should reject immediate completion (timelock not elapsed)", () => {
@@ -960,7 +1369,34 @@ describe("ClovaPay Off-Ramp Contract", () => {
         [],
         wallet1
       );
-      expect(block.result).toBeErr(Cl.uint(116)); // ERR_TRANSFER_LOCKED
+      expect(block.result).toBeErr(Cl.uint(116));
+    });
+
+    it("should allow completion after timelock", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      advanceBlocks(150);
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "complete-admin-transfer",
+        [],
+        wallet1
+      );
+      expect(block.result).toBeOk(Cl.bool(true));
+
+      const admin = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-admin",
+        [],
+        deployer
+      );
+      expect(admin.result).toBePrincipal(wallet1);
     });
 
     it("should allow owner to cancel pending transfer", () => {
@@ -978,6 +1414,14 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
       expect(block.result).toBeOk(Cl.bool(true));
+
+      const pending = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-pending-admin",
+        [],
+        deployer
+      );
+      expect(pending.result.type).toBe(ClarityType.OptionalNone);
     });
 
     it("should reject cancel when no transfer pending", () => {
@@ -987,22 +1431,76 @@ describe("ClovaPay Off-Ramp Contract", () => {
         [],
         deployer
       );
-      expect(block.result).toBeErr(Cl.uint(115)); // ERR_NO_PENDING_TRANSFER
+      expect(block.result).toBeErr(Cl.uint(115));
+    });
+
+    it("should allow multiple pending transfers (overwrite)", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet2)],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+
+      const pending = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-pending-admin",
+        [],
+        deployer
+      );
+      expect(pending.result).toBeSome(Cl.principal(wallet2));
+    });
+
+    it("should preserve admin privileges during transfer window", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-fee-rate",
+        [Cl.uint(150)],
+        deployer
+      );
+
+      expect(block.result).toBeOk(Cl.bool(true));
+    });
+
+    it("should allow completion only by pending admin", () => {
+      simnet.callPublicFn(
+        "off-ramp",
+        "initiate-admin-transfer",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      advanceBlocks(150);
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "complete-admin-transfer",
+        [],
+        wallet2
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100));
     });
   });
 
   // --- Order Expiry ---
   describe("Order Expiry", () => {
-    it("should return default order expiry of 1008 blocks", () => {
-      const result = simnet.callReadOnlyFn(
-        "off-ramp",
-        "get-order-expiry",
-        [],
-        deployer
-      );
-      expect(result.result).toBeUint(1008);
-    });
-
     it("should allow admin to set order expiry", () => {
       const block = simnet.callPublicFn(
         "off-ramp",
@@ -1011,39 +1509,62 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
       expect(block.result).toBeOk(Cl.bool(true));
+
+      const expiry = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-order-expiry",
+        [],
+        deployer
+      );
+      expect(expiry.result).toBeUint(500);
     });
 
-    it("should return false for non-expired fresh order", () => {
-      const bankHash = createBankHash("expiry-test");
+    it("should allow anyone to expire stale orders", () => {
+      const bankHash = createBankHash("stale-order-test");
 
-      // Create order
-      const createBlock = simnet.callPublicFn(
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-order-expiry",
+        [Cl.uint(10)],
+        deployer
+      );
+
+      const order = simnet.callPublicFn(
         "off-ramp",
         "create-order",
         [
-          Cl.uint(5000000),
-          Cl.uint(25000),
+          Cl.uint(10000000),
+          Cl.uint(50000),
           Cl.stringAscii("NGN"),
           Cl.buffer(bankHash),
         ],
         wallet1
       );
 
-      const orderId = (createBlock.result as any).value.value;
+      const orderId = (order.result as any).value.value;
 
-      // Check if expired (should be false)
-      const result = simnet.callReadOnlyFn(
+      advanceBlocks(15);
+
+      const block = simnet.callPublicFn(
         "off-ramp",
-        "is-order-expired",
+        "expire-order",
         [Cl.uint(orderId)],
-        deployer
+        wallet2
       );
-      expect(result.result).toBeBool(false);
+
+      expect(block.result).toBeOk(Cl.bool(true));
     });
 
     it("should reject expire-order for non-expired order", () => {
       const bankHash = createBankHash("no-expire-test");
 
+      simnet.callPublicFn(
+        "off-ramp",
+        "set-order-expiry",
+        [Cl.uint(100)],
+        deployer
+      );
+
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -1058,15 +1579,49 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       const orderId = (createBlock.result as any).value.value;
 
-      // Try to expire before time
       const block = simnet.callPublicFn(
         "off-ramp",
         "expire-order",
         [Cl.uint(orderId)],
-        wallet2 // Anyone can call
+        wallet2
       );
 
-      expect(block.result).toBeErr(Cl.uint(117)); // ERR_ORDER_EXPIRED (not yet expired)
+      expect(block.result).toBeErr(Cl.uint(117));
+    });
+
+    it("should prevent expiring non-pending orders", () => {
+      const bankHash = createBankHash("expire-confirmed-test");
+      const paycrestRef = createPaycrestRef("EXPIRE-CONFIRMED");
+
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "confirm-order",
+        [Cl.uint(orderId), Cl.buffer(paycrestRef)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "expire-order",
+        [Cl.uint(orderId)],
+        wallet2
+      );
+
+      expect(block.result).toBeErr(Cl.uint(103));
     });
   });
 
@@ -1076,12 +1631,11 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const bankHash = createBankHash("partial-refund-test");
       const paycrestRef = createPaycrestRef("PARTIAL-REF-123");
 
-      // Create order
       const createBlock = simnet.callPublicFn(
         "off-ramp",
         "create-order",
         [
-          Cl.uint(10000000), // 10 STX
+          Cl.uint(10000000),
           Cl.uint(50000),
           Cl.stringAscii("NGN"),
           Cl.buffer(bankHash),
@@ -1091,7 +1645,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       const orderId = (createBlock.result as any).value.value;
 
-      // Mark as processing first
       simnet.callPublicFn(
         "off-ramp",
         "mark-processing",
@@ -1099,13 +1652,12 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Partial refund - settled 6 STX, refund 4 STX
       const block = simnet.callPublicFn(
         "off-ramp",
         "partial-refund",
         [
           Cl.uint(orderId),
-          Cl.uint(6000000), // settled amount
+          Cl.uint(6000000),
           Cl.buffer(paycrestRef),
           Cl.stringAscii("Bridge timeout after partial settlement"),
         ],
@@ -1133,7 +1685,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       const orderId = (createBlock.result as any).value.value;
 
-      // Try partial refund without marking as processing
       const block = simnet.callPublicFn(
         "off-ramp",
         "partial-refund",
@@ -1146,7 +1697,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      expect(block.result).toBeErr(Cl.uint(103)); // ERR_ORDER_NOT_FOUND - wrong status (pending, not processing)
+      expect(block.result).toBeErr(Cl.uint(103));
     });
 
     it("should reject partial refund with settled >= order amount", () => {
@@ -1174,20 +1725,114 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      // Try partial refund with settled = order amount
       const block = simnet.callPublicFn(
         "off-ramp",
         "partial-refund",
         [
           Cl.uint(orderId),
-          Cl.uint(5000000), // same as order amount
+          Cl.uint(5000000),
           Cl.buffer(paycrestRef),
           Cl.stringAscii("Invalid amount"),
         ],
         deployer
       );
 
-      expect(block.result).toBeErr(Cl.uint(101)); // ERR_INVALID_AMOUNT
+      expect(block.result).toBeErr(Cl.uint(101));
+    });
+
+    it("should handle partial refund with zero settled amount", () => {
+      const bankHash = createBankHash("partial-zero-test");
+      const paycrestRef = createPaycrestRef("ZERO-REF");
+
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "partial-refund",
+        [
+          Cl.uint(orderId),
+          Cl.uint(0),
+          Cl.buffer(paycrestRef),
+          Cl.stringAscii("Zero settlement"),
+        ],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(101));
+    });
+
+    it("should calculate correct fee on partial settlement", () => {
+      const bankHash = createBankHash("partial-fee-test");
+      const paycrestRef = createPaycrestRef("FEE-CALC-REF");
+
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        deployer
+      );
+
+      const feesBefore = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-fees",
+        [],
+        deployer
+      );
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "partial-refund",
+        [
+          Cl.uint(orderId),
+          Cl.uint(6000000),
+          Cl.buffer(paycrestRef),
+          Cl.stringAscii("Partial settlement"),
+        ],
+        deployer
+      );
+
+      const feesAfter = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-total-fees",
+        [],
+        deployer
+      );
+
+      const feeIncrease = Number(feesAfter.result.value) - Number(feesBefore.result.value);
+      expect(feeIncrease).toBe(60000);
     });
   });
 
@@ -1198,7 +1843,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const bankHash2 = createBankHash("batch-test-2");
       const bankHash3 = createBankHash("batch-test-3");
 
-      // Create 3 orders
       const order1 = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -1222,7 +1866,6 @@ describe("ClovaPay Off-Ramp Contract", () => {
       const orderId2 = (order2.result as any).value.value;
       const orderId3 = (order3.result as any).value.value;
 
-      // Batch mark as processing
       const block = simnet.callPublicFn(
         "off-ramp",
         "batch-mark-processing",
@@ -1230,7 +1873,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      expect(block.result).toBeOk(Cl.uint(3)); // 3 successful
+      expect(block.result).toBeOk(Cl.uint(3));
     });
 
     it("should reject batch operations from non-admin", () => {
@@ -1241,7 +1884,7 @@ describe("ClovaPay Off-Ramp Contract", () => {
         wallet1
       );
 
-      expect(block.result).toBeErr(Cl.uint(100)); // ERR_NOT_AUTHORIZED
+      expect(block.result).toBeErr(Cl.uint(100));
     });
 
     it("should reject empty batch", () => {
@@ -1252,13 +1895,12 @@ describe("ClovaPay Off-Ramp Contract", () => {
         deployer
       );
 
-      expect(block.result).toBeErr(Cl.uint(101)); // ERR_INVALID_AMOUNT
+      expect(block.result).toBeErr(Cl.uint(101));
     });
 
     it("should handle batch with some invalid orders", () => {
       const bankHash = createBankHash("batch-mixed-test");
 
-      // Create one valid order
       const order = simnet.callPublicFn(
         "off-ramp",
         "create-order",
@@ -1268,16 +1910,293 @@ describe("ClovaPay Off-Ramp Contract", () => {
 
       const orderId = (order.result as any).value.value;
 
-      // Batch with one valid and one invalid order
       const block = simnet.callPublicFn(
         "off-ramp",
         "batch-mark-processing",
-        [Cl.list([Cl.uint(orderId), Cl.uint(99999)])], // 99999 doesn't exist
+        [Cl.list([Cl.uint(orderId), Cl.uint(99999)])],
         deployer
       );
 
-      // Should return success count of 1 (only valid order processed)
       expect(block.result).toBeOk(Cl.uint(1));
+    });
+  });
+
+  // --- Stress Tests ---
+  describe("Stress Tests", () => {
+    it("should handle maximum orders per user (50)", () => {
+      const bankHash = createBankHash("max-orders-test");
+
+      for (let i = 0; i < 50; i++) {
+        const block = simnet.callPublicFn(
+          "off-ramp",
+          "create-order",
+          [
+            Cl.uint(10000000),
+            Cl.uint(50000),
+            Cl.stringAscii("NGN"),
+            Cl.buffer(bankHash),
+          ],
+          wallet1
+        );
+        expect(block.result).toBeOk(Cl.uint(i + 1));
+      }
+
+      const block51 = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      expect(block51.result).toBeErr(Cl.uint(106));
+    });
+
+    it("should handle multiple users creating orders simultaneously", () => {
+      const bankHash = createBankHash("multi-user-test");
+      const users = [wallet1, wallet2, deployer];
+
+      users.forEach((user, index) => {
+        const block = simnet.callPublicFn(
+          "off-ramp",
+          "create-order",
+          [
+            Cl.uint(10000000),
+            Cl.uint(50000),
+            Cl.stringAscii("NGN"),
+            Cl.buffer(bankHash),
+          ],
+          user
+        );
+        expect(block.result).toBeOk(Cl.uint(index + 1));
+      });
+
+      for (let i = 1; i <= users.length; i++) {
+        const order = simnet.callReadOnlyFn(
+          "off-ramp",
+          "get-order",
+          [Cl.uint(i)],
+          deployer
+        );
+        expect(order.result.type).toBe(ClarityType.OptionalSome);
+      }
+    });
+
+    it("should handle interleaved operations", () => {
+      const bankHash = createBankHash("interleaved-test");
+      const paycrestRef = createPaycrestRef("INTERLEAVED-REF");
+
+      const orders = [];
+      for (let i = 0; i < 5; i++) {
+        const block = simnet.callPublicFn(
+          "off-ramp",
+          "create-order",
+          [
+            Cl.uint(10000000),
+            Cl.uint(50000),
+            Cl.stringAscii("NGN"),
+            Cl.buffer(bankHash),
+          ],
+          wallet1
+        );
+        orders.push((block.result as any).value.value);
+      }
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orders[0])],
+        deployer
+      );
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "cancel-order",
+        [Cl.uint(orders[1])],
+        wallet1
+      );
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "confirm-order",
+        [Cl.uint(orders[2]), Cl.buffer(paycrestRef)],
+        deployer
+      );
+
+      for (let i = 3; i < 5; i++) {
+        const order = simnet.callReadOnlyFn(
+          "off-ramp",
+          "get-order",
+          [Cl.uint(orders[i])],
+          deployer
+        );
+        expect(order.result.type).toBe(ClarityType.OptionalSome);
+      }
+    });
+  });
+
+  // --- Security & Access Control ---
+  describe("Security & Access Control", () => {
+    it("should prevent unauthorized fee withdrawal", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "withdraw-fees",
+        [Cl.uint(1000000)],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100));
+    });
+
+    it("should prevent withdrawing more than collected fees", () => {
+      const bankHash = createBankHash("fee-overdraft-test");
+      const paycrestRef = createPaycrestRef("OVERDRAFT-REF");
+
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet1
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "confirm-order",
+        [Cl.uint(orderId), Cl.buffer(paycrestRef)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "withdraw-fees",
+        [Cl.uint(1000000000)],
+        deployer
+      );
+
+      expect(block.result).toBeErr(Cl.uint(104));
+    });
+
+    it("should prevent non-admin from setting treasury", () => {
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "set-treasury",
+        [Cl.principal(wallet1)],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100));
+    });
+  });
+
+  // --- Comprehensive State Validation ---
+  describe("Comprehensive State Validation", () => {
+    it("should maintain user order list integrity", () => {
+      const bankHash = createBankHash("list-integrity-test");
+      const orders = [];
+
+      for (let i = 0; i < 5; i++) {
+        const block = simnet.callPublicFn(
+          "off-ramp",
+          "create-order",
+          [
+            Cl.uint(10000000),
+            Cl.uint(50000),
+            Cl.stringAscii("NGN"),
+            Cl.buffer(bankHash),
+          ],
+          wallet1
+        );
+        orders.push((block.result as any).value.value);
+      }
+
+      const userOrders = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-user-orders",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const orderIds = (userOrders.result as any).value["order-ids"].value;
+      expect(orderIds.length).toBe(5);
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "cancel-order",
+        [Cl.uint(orders[2])],
+        wallet1
+      );
+
+      const updatedOrders = simnet.callReadOnlyFn(
+        "off-ramp",
+        "get-user-orders",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const updatedIds = (updatedOrders.result as any).value["order-ids"].value;
+      expect(updatedIds.length).toBe(5);
+      expect(updatedIds).toContainEqual(Cl.uint(orders[2]));
+    });
+
+    it("should maintain consistent state across admin changes", () => {
+      const bankHash = createBankHash("admin-state-test");
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "add-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const order = simnet.callPublicFn(
+        "off-ramp",
+        "create-order",
+        [
+          Cl.uint(10000000),
+          Cl.uint(50000),
+          Cl.stringAscii("NGN"),
+          Cl.buffer(bankHash),
+        ],
+        wallet2
+      );
+
+      const orderId = (order.result as any).value.value;
+
+      simnet.callPublicFn(
+        "off-ramp",
+        "remove-admin",
+        [Cl.principal(wallet1)],
+        deployer
+      );
+
+      const block = simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        wallet1
+      );
+
+      expect(block.result).toBeErr(Cl.uint(100));
+
+      const deployerBlock = simnet.callPublicFn(
+        "off-ramp",
+        "mark-processing",
+        [Cl.uint(orderId)],
+        deployer
+      );
+
+      expect(deployerBlock.result).toBeOk(Cl.bool(true));
     });
   });
 });
