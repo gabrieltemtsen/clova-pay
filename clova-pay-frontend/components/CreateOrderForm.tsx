@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@/context/WalletContext";
 import { SUPPORTED_CURRENCIES, network, hashBankDetails } from "@/lib/stacks";
 import { ArrowDownRight, Building2, AlertCircle, Loader2 } from "lucide-react";
-import { fetchRate } from "@/lib/api";
+import { fetchRate, verifyRecipient } from "@/lib/api";
 import { uintCV, stringAsciiCV, bufferCV, PostConditionMode } from "@stacks/transactions";
 import { SupportedCurrency } from "@/lib/types";
 import { validateSTXAmount, validateBankAccount, validateBankCode, type ValidationError } from "@/lib/validation";
@@ -21,6 +21,8 @@ export default function CreateOrderForm() {
     const [loading, setLoading] = useState(false);
     const [calculating, setCalculating] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isVerifyingRecipient, setIsVerifyingRecipient] = useState(false);
+    const [recipientVerified, setRecipientVerified] = useState(false);
 
     // Bank Details State
     const [bankName, setBankName] = useState("");
@@ -31,6 +33,10 @@ export default function CreateOrderForm() {
     // Derived/Fiat
     const [fiatAmount, setFiatAmount] = useState("");
     const [errors, setErrors] = useState<ValidationError[]>([]);
+
+    useEffect(() => {
+        setRecipientVerified(false);
+    }, [bankCode, accountNumber]);
 
     useEffect(() => {
         const loadRate = async () => {
@@ -57,6 +63,35 @@ export default function CreateOrderForm() {
         setFiatAmount(val.toFixed(2));
     }, [amount, rate]);
 
+    const handleVerifyRecipient = async () => {
+        const bankError = validateBankAccount(accountNumber);
+        const codeCodeError = validateBankCode(bankCode);
+        const verifyErrors: ValidationError[] = [];
+        if (bankError) verifyErrors.push({ field: 'accountNumber', message: bankError });
+        if (codeCodeError) verifyErrors.push({ field: 'bankCode', message: codeCodeError });
+        if (verifyErrors.length > 0) {
+            setErrors(verifyErrors);
+            return;
+        }
+
+        setIsVerifyingRecipient(true);
+        try {
+            const result = await verifyRecipient(accountNumber, bankCode);
+            if (!result.verified || !result.accountName) {
+                setErrors([{ field: 'accountName', message: 'Could not verify account details. Please re-check bank code and account number.' }]);
+                setRecipientVerified(false);
+                return;
+            }
+            setAccountName(result.accountName);
+            setRecipientVerified(true);
+        } catch (err) {
+            setErrors([{ field: 'accountName', message: `Verification failed: ${(err as Error).message}` }]);
+            setRecipientVerified(false);
+        } finally {
+            setIsVerifyingRecipient(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrors([]);
@@ -75,7 +110,6 @@ export default function CreateOrderForm() {
         if (amountError) newErrors.push({ field: "amount", message: amountError });
         if (bankError) newErrors.push({ field: "accountNumber", message: bankError });
         if (codeCodeError) newErrors.push({ field: "bankCode", message: codeCodeError });
-        if (!accountName) newErrors.push({ field: "accountName", message: "Account Name is required" });
 
         if (newErrors.length > 0) {
             setErrors(newErrors);
@@ -85,11 +119,22 @@ export default function CreateOrderForm() {
         setIsSubmitting(true);
 
         try {
+            let resolvedAccountName = accountName;
+            if (!recipientVerified || !resolvedAccountName) {
+                const verified = await verifyRecipient(accountNumber, bankCode);
+                if (!verified.verified || !verified.accountName) {
+                    throw new Error('Bank account could not be verified');
+                }
+                resolvedAccountName = verified.accountName;
+                setAccountName(verified.accountName);
+                setRecipientVerified(true);
+            }
+
             // Hash bank details
             const bankHash = await hashBankDetails({
                 bankCode,
                 accountNumber,
-                accountName,
+                accountName: resolvedAccountName,
             });
 
             // Convert amount to microSTX
@@ -124,6 +169,7 @@ export default function CreateOrderForm() {
                     setAccountName("");
                     setAccountNumber("");
                     setBankCode("");
+                    setRecipientVerified(false);
                     alert("Order created! Tx: " + data.txId);
                 },
                 onCancel: () => {
@@ -223,13 +269,25 @@ export default function CreateOrderForm() {
                         )}
                     </div>
 
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={handleVerifyRecipient}
+                            disabled={isVerifyingRecipient || !bankCode || !accountNumber}
+                            className="px-4 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isVerifyingRecipient ? 'Verifying...' : 'Verify account'}
+                        </button>
+                        {recipientVerified && <span className="text-green-400 text-sm">Account verified ✓</span>}
+                    </div>
+
                     <div>
                         <input
                             type="text"
                             value={accountName}
-                            onChange={(e) => setAccountName(e.target.value)}
-                            placeholder="Account Name"
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors"
+                            readOnly
+                            placeholder="Account Name (auto-filled after verification)"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none transition-colors"
                         />
                         {errors.find(e => e.field === "accountName") && (
                             <p className="mt-1 text-sm text-red-500">{errors.find(e => e.field === "accountName")?.message}</p>

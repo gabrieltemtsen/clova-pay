@@ -15,18 +15,9 @@ export async function fetchOrders(address: string): Promise<Order[]> {
 }
 
 export async function fetchRate(token: string, fiat: string): Promise<OfframpRate> {
-    // Determine the exchange rate (API or mock)
-    // For now, we hardcode or fetch from an endpoint if one exists.
-    // ClovaPay backend needs a rate proxy from Clova Pay Africa.
-    // TODO: Expose /rates endpoint in backend via ClovaAfricaService.
-
-    // Mock for now to unblock
+    // TODO: expose a backend /rates proxy from Clova Africa service.
     const mockRates: Record<string, string> = {
         'STX-NGN': '1500',
-        'STX-KES': '150',
-        'STX-GHS': '15',
-        'STX-UGX': '3800',
-        'STX-TZS': '2600',
     }
     const key = `${token}-${fiat}`;
 
@@ -35,4 +26,15 @@ export async function fetchRate(token: string, fiat: string): Promise<OfframpRat
         fiat,
         rate: mockRates[key] || '0',
     };
+}
+
+export async function verifyRecipient(accountNumber: string, bankCode: string): Promise<{ verified: boolean; accountName: string; accountNumber: string; bankCode: string; }> {
+    const res = await fetch(`${API_URL}/orders/verify-recipient`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ accountNumber, bankCode }),
+    });
+
+    if (!res.ok) throw new Error('Recipient verification failed');
+    return res.json();
 }

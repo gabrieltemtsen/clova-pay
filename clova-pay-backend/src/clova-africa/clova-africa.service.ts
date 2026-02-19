@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { ClovaAfricaOrderRequest, ClovaAfricaOrderResponse, ClovaAfricaQuoteResponse } from './clova-africa.types';
+import { ClovaAfricaOrderRequest, ClovaAfricaOrderResponse, ClovaAfricaQuoteResponse, ClovaAfricaRecipientResolveResponse } from './clova-africa.types';
 
 @Injectable()
 export class ClovaAfricaService {
@@ -58,6 +58,23 @@ export class ClovaAfricaService {
       status: String(response.data.status || 'awaiting_deposit'),
       depositAddress: response.data.depositAddress ? String(response.data.depositAddress) : undefined,
       receiveNgn: response.data.receiveNgn ? String(response.data.receiveNgn) : undefined,
+    };
+  }
+
+  async resolveRecipient(input: { accountNumber: string; bankCode: string }): Promise<ClovaAfricaRecipientResolveResponse> {
+    const response = await firstValueFrom(
+      this.httpService.post(
+        `${this.apiUrl}/v1/recipients/resolve`,
+        input,
+        { headers: this.getHeaders(), timeout: 10000 },
+      ),
+    );
+
+    return {
+      accountName: String(response.data.accountName || ''),
+      accountNumber: String(response.data.accountNumber || input.accountNumber),
+      bankCode: String(response.data.bankCode || input.bankCode),
+      verified: Boolean(response.data.verified),
     };
   }
 }

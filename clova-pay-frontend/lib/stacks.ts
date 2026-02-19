@@ -12,10 +12,6 @@ export const CONTRACT_NAME = "off-ramp";
 // Supported fiat currencies with their display info
 export const SUPPORTED_CURRENCIES = [
     { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", symbol: "₦" },
-    { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", symbol: "KSh" },
-    { code: "GHS", name: "Ghanaian Cedi", flag: "🇬🇭", symbol: "₵" },
-    { code: "UGX", name: "Ugandan Shilling", flag: "🇺🇬", symbol: "USh" },
-    { code: "TZS", name: "Tanzanian Shilling", flag: "🇹🇿", symbol: "TSh" },
 ] as const;
 
 export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]["code"];
