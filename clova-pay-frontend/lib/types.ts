@@ -8,7 +8,7 @@ export enum OrderStatus {
     FAILED = "FAILED"
 }
 
-export type SupportedCurrency = 'NGN' | 'KES' | 'GHS' | 'UGX' | 'TZS';
+export type SupportedCurrency = 'NGN';
 
 // Backend compatible Order interface
 export interface Order {

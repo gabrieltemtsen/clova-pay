@@ -11,26 +11,35 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
-import { OrderQueryDto, UpdateOrderDto, CreateOrderDto } from './dto/order.dto';
+import { OrderQueryDto, UpdateOrderDto, ProcessOrderDto, VerifyRecipientDto } from './dto/order.dto';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { ClovaAfricaService } from '../clova-africa/clova-africa.service';
 
 @ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
-    constructor(private readonly ordersService: OrdersService) { }
+    constructor(
+        private readonly ordersService: OrdersService,
+        private readonly clovaAfricaService: ClovaAfricaService,
+    ) { }
+
+    private serializeOrder(order: any) {
+        return {
+            ...order,
+            amount: order.amount?.toString?.() ?? order.amount,
+            fee: order.fee?.toString?.() ?? order.fee,
+            fiatAmount: order.fiatAmount?.toString?.() ?? order.fiatAmount,
+            offrampOrderId: order.paycrestOrderId || null,
+            offrampStatus: order.paycrestStatus || null,
+        };
+    }
 
     @Get()
     @ApiOperation({ summary: 'List all orders' })
     @ApiResponse({ status: 200, description: 'Return a list of orders.' })
     async findAll(@Query() query: OrderQueryDto) {
         const orders = await this.ordersService.findAll(query);
-        // Convert BigInt to string for JSON serialization
-        return orders.map((order) => ({
-            ...order,
-            amount: order.amount.toString(),
-            fee: order.fee.toString(),
-            fiatAmount: order.fiatAmount.toString(),
-        }));
+        return orders.map((order) => this.serializeOrder(order));
     }
 
     @Get('stats')
@@ -45,12 +54,7 @@ export class OrdersController {
     @ApiResponse({ status: 200, description: 'Return the order.' })
     async findOne(@Param('id') id: string) {
         const order = await this.ordersService.findOne(id);
-        return {
-            ...order,
-            amount: order.amount.toString(),
-            fee: order.fee.toString(),
-            fiatAmount: order.fiatAmount.toString(),
-        };
+        return this.serializeOrder(order);
     }
 
     @Get('stacks/:stacksOrderId')
@@ -58,12 +62,7 @@ export class OrdersController {
     @ApiResponse({ status: 200, description: 'Return the order.' })
     async findByStacksId(@Param('stacksOrderId') stacksOrderId: string) {
         const order = await this.ordersService.findByStacksId(parseInt(stacksOrderId, 10));
-        return {
-            ...order,
-            amount: order.amount.toString(),
-            fee: order.fee.toString(),
-            fiatAmount: order.fiatAmount.toString(),
-        };
+        return this.serializeOrder(order);
     }
 
     @Post(':id/status')
@@ -75,30 +74,71 @@ export class OrdersController {
         @Body() dto: UpdateOrderDto,
     ) {
         const order = await this.ordersService.updateStatus(id, dto);
-        return {
-            ...order,
-            amount: order.amount.toString(),
-            fee: order.fee.toString(),
-            fiatAmount: order.fiatAmount.toString(),
-        };
+        return this.serializeOrder(order);
+    }
+
+    @Post('verify-recipient')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Verify bank account details via Clova Africa before order creation' })
+    @ApiResponse({ status: 200, description: 'Recipient verification result.' })
+    async verifyRecipient(@Body() dto: VerifyRecipientDto) {
+        return this.clovaAfricaService.resolveRecipient({
+            accountNumber: dto.accountNumber,
+            bankCode: dto.bankCode,
+        });
     }
 
     @Post(':id/process')
     @UseGuards(ApiKeyGuard)
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Trigger Clova Africa off-ramp settlement process (Admin only)' })
-    @ApiResponse({ status: 200, description: 'Order queued for off-ramp settlement.' })
+    @ApiResponse({ status: 200, description: 'Order sent to Clova Africa settlement.' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    async processOrder(@Param('id') id: string) {
-        // This will be called to trigger Clova Africa settlement orchestration.
-        // For now, mark as processing with provider-neutral reference.
-        const order = await this.ordersService.markProcessing(id, 'pending-clova-africa');
+    async processOrder(@Param('id') id: string, @Body() dto: ProcessOrderDto) {
+        const providerOrder = await this.clovaAfricaService.createOrder({
+            asset: dto.asset,
+            amountCrypto: dto.amountCrypto,
+            recipient: {
+                accountName: dto.accountName,
+                accountNumber: dto.accountNumber,
+                bankCode: dto.bankCode,
+            },
+        });
+
+        const order = await this.ordersService.markProcessing(id, providerOrder.orderId);
         return {
-            ...order,
-            amount: order.amount.toString(),
-            fee: order.fee.toString(),
-            fiatAmount: order.fiatAmount.toString(),
-            message: 'Order queued for Clova Africa settlement',
+            ...this.serializeOrder(order),
+            message: 'Order sent to Clova Africa settlement',
+            provider: providerOrder,
+        };
+    }
+
+    @Get(':id/offramp-status')
+    @UseGuards(ApiKeyGuard)
+    @ApiOperation({ summary: 'Fetch and sync current Clova Africa order status for a local order' })
+    @ApiResponse({ status: 200, description: 'Returns provider status and synced local order status.' })
+    async getOfframpStatus(@Param('id') id: string) {
+        const order = await this.ordersService.findOne(id);
+        if (!order.paycrestOrderId) {
+            return {
+                order: this.serializeOrder(order),
+                provider: null,
+                message: 'No linked off-ramp provider order yet.',
+            };
+        }
+
+        const provider = await this.clovaAfricaService.getOrder(order.paycrestOrderId);
+
+        if (provider.status === 'settled' || provider.status === 'paid_out') {
+            await this.ordersService.markSettled(order.id);
+        } else if (provider.status === 'failed') {
+            await this.ordersService.markFailed(order.id, provider.status);
+        }
+
+        const fresh = await this.ordersService.findOne(id);
+        return {
+            order: this.serializeOrder(fresh),
+            provider,
         };
     }
 }

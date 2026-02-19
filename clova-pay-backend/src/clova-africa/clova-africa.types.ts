@@ -22,3 +22,10 @@ export interface ClovaAfricaOrderResponse {
   depositAddress?: string;
   receiveNgn?: string;
 }
+
+export interface ClovaAfricaRecipientResolveResponse {
+  accountName: string;
+  accountNumber: string;
+  bankCode: string;
+  verified: boolean;
+}
