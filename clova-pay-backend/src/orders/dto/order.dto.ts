@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsInt, Min, IsNotEmpty, Length } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsInt, Min, IsNotEmpty, Length, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum OrderStatus {
@@ -95,4 +95,31 @@ export class OrderQueryDto {
     @IsNumber()
     @IsOptional()
     offset?: number;
+}
+
+export class ProcessOrderDto {
+    @ApiProperty({ enum: ['cUSD_CELO', 'USDC_BASE', 'USDCX_STACKS'], description: 'Settlement rail asset' })
+    @IsString()
+    @IsIn(['cUSD_CELO', 'USDC_BASE', 'USDCX_STACKS'])
+    asset: 'cUSD_CELO' | 'USDC_BASE' | 'USDCX_STACKS';
+
+    @ApiProperty({ description: 'Amount in crypto units as string', example: '2' })
+    @IsString()
+    @IsNotEmpty()
+    amountCrypto: string;
+
+    @ApiProperty({ description: 'Recipient account name', example: 'Gabriel Temtsen' })
+    @IsString()
+    @IsNotEmpty()
+    accountName: string;
+
+    @ApiProperty({ description: 'Recipient account number', example: '9052390212' })
+    @IsString()
+    @Length(10, 10)
+    accountNumber: string;
+
+    @ApiProperty({ description: 'Recipient bank code', example: '999992' })
+    @IsString()
+    @IsNotEmpty()
+    bankCode: string;
 }

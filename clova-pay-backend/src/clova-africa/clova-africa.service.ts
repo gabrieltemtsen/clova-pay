@@ -60,4 +60,20 @@ export class ClovaAfricaService {
       receiveNgn: response.data.receiveNgn ? String(response.data.receiveNgn) : undefined,
     };
   }
+
+  async getOrder(orderId: string): Promise<ClovaAfricaOrderResponse> {
+    const response = await firstValueFrom(
+      this.httpService.get(
+        `${this.apiUrl}/v1/orders/${orderId}`,
+        { headers: this.getHeaders(), timeout: 10000 },
+      ),
+    );
+
+    return {
+      orderId: String(response.data.orderId || orderId),
+      status: String(response.data.status || 'unknown'),
+      depositAddress: response.data.depositAddress ? String(response.data.depositAddress) : undefined,
+      receiveNgn: response.data.receiveNgn ? String(response.data.receiveNgn) : undefined,
+    };
+  }
 }
