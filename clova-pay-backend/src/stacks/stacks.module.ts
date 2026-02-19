@@ -4,8 +4,8 @@ import { StacksService } from './stacks.service';
 import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-    imports: [HttpModule, OrdersModule],
-    providers: [StacksService],
-    exports: [StacksService],
+  imports: [HttpModule, OrdersModule],
+  providers: [StacksService],
+  exports: [StacksService],
 })
-export class StacksModule { }
+export class StacksModule {}

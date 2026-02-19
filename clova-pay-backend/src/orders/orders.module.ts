@@ -4,9 +4,9 @@ import { OrdersService } from './orders.service';
 import { ClovaAfricaModule } from '../clova-africa/clova-africa.module';
 
 @Module({
-    imports: [ClovaAfricaModule],
-    controllers: [OrdersController],
-    providers: [OrdersService],
-    exports: [OrdersService],
+  imports: [ClovaAfricaModule],
+  controllers: [OrdersController],
+  providers: [OrdersService],
+  exports: [OrdersService],
 })
-export class OrdersModule { }
+export class OrdersModule {}

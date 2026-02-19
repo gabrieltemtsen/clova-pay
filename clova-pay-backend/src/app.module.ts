@@ -14,10 +14,12 @@ import { AppService } from './app.service';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 10,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
     PrismaModule,
     OrdersModule,
     StacksModule,
@@ -32,4 +34,4 @@ import { AppService } from './app.service';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}
