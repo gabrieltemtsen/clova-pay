@@ -17,7 +17,7 @@ This directory contains Architecture Decision Records (ADRs) for the ClovaPay pr
 
 **Rationale**:
 - On-chain escrow for security and transparency
-- Off-chain processing for fiat settlement via Paycrest
+- Off-chain processing for fiat settlement via Clova Pay Africa
 - Best of both worlds
 
 ### ADR-003: Multi-Admin Support

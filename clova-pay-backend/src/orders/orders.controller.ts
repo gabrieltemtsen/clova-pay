@@ -86,19 +86,19 @@ export class OrdersController {
     @Post(':id/process')
     @UseGuards(ApiKeyGuard)
     @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Trigger Paycrest settlement process (Admin only)' })
-    @ApiResponse({ status: 200, description: 'Order queued for settlement.' })
+    @ApiOperation({ summary: 'Trigger Clova Africa off-ramp settlement process (Admin only)' })
+    @ApiResponse({ status: 200, description: 'Order queued for off-ramp settlement.' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     async processOrder(@Param('id') id: string) {
-        // This will be called to trigger Paycrest settlement
-        // For now, just mark as processing
-        const order = await this.ordersService.markProcessing(id, 'pending-paycrest');
+        // This will be called to trigger Clova Africa settlement orchestration.
+        // For now, mark as processing with provider-neutral reference.
+        const order = await this.ordersService.markProcessing(id, 'pending-clova-africa');
         return {
             ...order,
             amount: order.amount.toString(),
             fee: order.fee.toString(),
             fiatAmount: order.fiatAmount.toString(),
-            message: 'Order queued for Paycrest settlement',
+            message: 'Order queued for Clova Africa settlement',
         };
     }
 }

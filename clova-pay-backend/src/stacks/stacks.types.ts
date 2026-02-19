@@ -28,7 +28,7 @@ export interface OrderConfirmedEvent {
     sender: string;
     netAmount: number;
     fee: number;
-    paycrestRef: string;
+    settlementRef: string;
 }
 
 export interface OrderCancelledEvent {

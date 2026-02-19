@@ -113,8 +113,9 @@ export class OrdersService {
                 where: { id },
                 data: {
                     status: dto.status,
-                    paycrestOrderId: dto.paycrestOrderId ?? order.paycrestOrderId,
-                    paycrestStatus: dto.paycrestStatus ?? order.paycrestStatus,
+                    // Keep DB compatibility: map neutral API fields onto existing columns.
+                    paycrestOrderId: dto.offrampOrderId ?? order.paycrestOrderId,
+                    paycrestStatus: dto.offrampStatus ?? order.paycrestStatus,
                     ...(dto.status === OrderStatus.CONFIRMED && { confirmedAt: new Date() }),
                 },
             });
@@ -128,17 +129,17 @@ export class OrdersService {
         }
     }
 
-    async markProcessing(id: string, paycrestOrderId: string) {
+    async markProcessing(id: string, offrampOrderId: string) {
         return this.updateStatus(id, {
             status: OrderStatus.PROCESSING,
-            paycrestOrderId,
+            offrampOrderId,
         });
     }
 
     async markSettled(id: string) {
         return this.updateStatus(id, {
             status: OrderStatus.SETTLED,
-            paycrestStatus: 'SETTLED',
+            offrampStatus: 'SETTLED',
         });
     }
 
@@ -156,7 +157,7 @@ export class OrdersService {
                 where: { id },
                 data: {
                     status: OrderStatus.FAILED,
-                    paycrestStatus: reason ?? 'FAILED',
+                    paycrestStatus: reason ?? 'FAILED', // DB column name retained for backward compatibility
                 },
             });
             this.logger.warn(`Marked order ${id} as FAILED: ${reason}`);

@@ -34,8 +34,8 @@ ClovaPay provides instant, low-fee crypto-to-fiat conversion for the Stacks ecos
 
 ```
 ┌──────────────┐    ┌─────────────┐    ┌────────────┐    ┌──────────┐
-│   Frontend   │───▶│   Stacks    │───▶│  Backend   │───▶│ Paycrest │
-│   (Next.js)  │    │  Contract   │    │  (NestJS)  │    │   (EVM)  │
+│   Frontend   │───▶│   Stacks    │───▶│  Backend   │───▶│ ClovaPay Africa │
+│   (Next.js)  │    │  Contract   │    │  (NestJS)  │    │  (Settlement)   │
 └──────────────┘    └─────────────┘    └────────────┘    └──────────┘
                           │                   │                │
                      Lock STX/Tokens     Listen Events    Settle Fiat
@@ -46,8 +46,8 @@ ClovaPay provides instant, low-fee crypto-to-fiat conversion for the Stacks ecos
 
 **Hybrid Bridge Design:**
 1. User locks STX/tokens in the Stacks smart contract
-2. Backend listens for contract events and calls Paycrest API
-3. Paycrest settles fiat to user's bank account
+2. Backend listens for contract events and calls Clova Pay Africa API
+3. Clova Pay Africa settles fiat to user's bank account
 4. Backend confirms order, releasing escrow fees
 
 ---
@@ -162,7 +162,7 @@ npm run dev
 
 - [x] **Phase 1** — Smart contract & frontend foundation
 - [x] **Phase 2** — SIP-010 token support
-- [x] **Phase 3** — NestJS backend & Paycrest integration
+- [x] **Phase 3** — NestJS backend & Clova Pay Africa integration
 - [x] **Phase 4** — Enhanced admin controls & security
 - [ ] **Phase 5** — Mainnet deployment
 - [ ] **Phase 6** — Mobile app
@@ -191,7 +191,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## 🔗 Links
 
 - [Stacks](https://stacks.co) — Bitcoin L2
-- [Paycrest](https://paycrest.io) — Fiat settlement
+- [Clova Pay Africa](https://clova-pay-africa-production.up.railway.app/health) — Fiat settlement
 - [Code4STX](https://code4stx.com) — Builder program
 
 ---
