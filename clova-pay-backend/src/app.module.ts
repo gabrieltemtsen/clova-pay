@@ -5,7 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrdersModule } from './orders/orders.module';
 import { StacksModule } from './stacks/stacks.module';
-import { PaycrestModule } from './paycrest/paycrest.module';
+import { ClovaAfricaModule } from './clova-africa/clova-africa.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -21,7 +21,7 @@ import { AppService } from './app.service';
     PrismaModule,
     OrdersModule,
     StacksModule,
-    PaycrestModule,
+    ClovaAfricaModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,6 +1,6 @@
 import { Order, OrderStatus } from "@/lib/types";
 
-export interface PaycrestRate {
+export interface OfframpRate {
     token: string;
     fiat: string;
     rate: string;
@@ -14,13 +14,11 @@ export async function fetchOrders(address: string): Promise<Order[]> {
     return res.json();
 }
 
-export async function fetchRate(token: string, fiat: string): Promise<PaycrestRate> {
+export async function fetchRate(token: string, fiat: string): Promise<OfframpRate> {
     // Determine the exchange rate (API or mock)
     // For now, we hardcode or fetch from an endpoint if one exists.
-    // ClovaPay backend needs a rate proxy or we assume client-side or predefined.
-    // Let's assume there's a rate endpoint or just mock it here for now as backend doesn't publicly expose Paycrest rates yet except via internal service.
-    // Actually PaycrestService in backend has getRate but it's not exposed in Controller yet.
-    // TODO: Expose /rates endpoint in backend using PaycrestService.
+    // ClovaPay backend needs a rate proxy from Clova Pay Africa.
+    // TODO: Expose /rates endpoint in backend via ClovaAfricaService.
 
     // Mock for now to unblock
     const mockRates: Record<string, string> = {

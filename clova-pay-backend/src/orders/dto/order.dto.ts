@@ -64,15 +64,15 @@ export class UpdateOrderDto {
     @IsEnum(OrderStatus)
     status: OrderStatus;
 
-    @ApiPropertyOptional({ description: 'Paycrest Order ID' })
+    @ApiPropertyOptional({ description: 'Off-ramp provider order ID (Clova Africa orderId)' })
     @IsString()
     @IsOptional()
-    paycrestOrderId?: string;
+    offrampOrderId?: string;
 
-    @ApiPropertyOptional({ description: 'Paycrest Order Status' })
+    @ApiPropertyOptional({ description: 'Off-ramp provider status' })
     @IsString()
     @IsOptional()
-    paycrestStatus?: string;
+    offrampStatus?: string;
 }
 
 export class OrderQueryDto {
