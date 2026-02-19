@@ -1,25 +1,25 @@
 export interface StacksEvent {
-    txId?: string;
+  txId?: string;
 }
 
 export interface OrderCreatedEvent extends StacksEvent {
-    orderid: number;
-    sender: string;
-    amount: number;
-    fee: number;
-    fiatamount: number;
-    fiatcurrency: string;
-    bankdetailshash: string;
+  orderid: number;
+  sender: string;
+  amount: number;
+  fee: number;
+  fiatamount: number;
+  fiatcurrency: string;
+  bankdetailshash: string;
 }
 
 export interface OrderConfirmedEvent extends StacksEvent {
-    orderid: number;
+  orderid: number;
 }
 
 export interface OrderCancelledEvent extends StacksEvent {
-    orderid: number;
+  orderid: number;
 }
 
 export interface OrderRefundedEvent extends StacksEvent {
-    orderid: number;
+  orderid: number;
 }
