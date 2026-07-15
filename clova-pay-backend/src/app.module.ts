@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { OrdersModule } from './orders/orders.module';
 import { StacksModule } from './stacks/stacks.module';
 import { ClovaAfricaModule } from './clova-africa/clova-africa.module';
+import { AutomationModule } from './automation/automation.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -24,6 +25,7 @@ import { AppService } from './app.service';
     OrdersModule,
     StacksModule,
     ClovaAfricaModule,
+    AutomationModule,
   ],
   controllers: [AppController],
   providers: [
@@ -34,4 +36,4 @@ import { AppService } from './app.service';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
